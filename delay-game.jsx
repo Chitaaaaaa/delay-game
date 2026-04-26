@@ -519,7 +519,7 @@ const EVENTS = [
   },
   // ---- 大公司病 ----
   {
-    id: "corp_kpi", name: "KPI季", emoji: "📊", color: "#6366f1",
+    id: "corp_kpi", name: "KPI季", emoji: "📊", color: "#7678f0",
     tagline: "「季度OKR必须今天提交」",
     situation: "HR发来通知：",
     dialogue: "本季度OKR填报截止今日。格式要求：17栏Excel，需要部门主管、技术Lead、项目负责人三方签字，上传至内网OA系统（注意：OA系统今天维护，需等下午三点后上传）。",
@@ -615,7 +615,7 @@ const MONTH_FLAVORS = [
 const MILESTONE_EVENTS = [
   {
     month: 1,
-    name: "立项启动评审", emoji: "🚀", color: "#6366f1",
+    name: "立项启动评审", emoji: "🚀", color: "#7678f0",
     tagline: "「方向定了吗？」",
     situation: "第一个月末，上面来看原型：",
     dialogue: "投资方代表坐在会议室里，笑着问：「能跑吗？大概什么感觉？我不需要完整的，能动就行。」你扫了一眼团队——他们昨晚熬通宵做了一个能跑的东西。",
@@ -681,21 +681,21 @@ function MonthSummaryCard({ data, bossTrust, onNext }) {
   return (
     <div style={{ padding: "24px 18px", flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
       <div style={{ background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 12, padding: "24px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
-        <div style={{ fontSize: 11, color: "#444", fontFamily: "monospace" }}>— 月度小结 —</div>
+        <div style={{ fontSize: 13, color: "#acacac", fontFamily: "monospace" }}>— 月度小结 —</div>
         <div style={{ fontSize: 20, fontWeight: 700, color: "#888" }}>第{month}月结束</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, fontFamily: "monospace", fontSize: 12 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, fontFamily: "monospace", fontSize: 14, lineHeight: 1.6 }}>
           <div>本月进度推进了 <span style={{ color: delta >= 0 ? "#4ade80" : "#f87171" }}>{delta >= 0 ? "+" : ""}{delta}%</span></div>
-          <div style={{ color: "#555" }}>距离上线还有 <span style={{ color: "#888" }}>{100 - progress}%</span></div>
-          <div style={{ color: "#555" }}>剩余 <span style={{ color: weeksLeft < 8 ? "#f87171" : "#888" }}>{weeksLeft}</span> 周</div>
+          <div style={{ color: "#acacac" }}>距离上线还有 <span style={{ color: "#888" }}>{100 - progress}%</span></div>
+          <div style={{ color: "#acacac" }}>剩余 <span style={{ color: weeksLeft < 8 ? "#f87171" : "#888" }}>{weeksLeft}</span> 周</div>
           {bossTrust <= 2 && bossTrust > 0 && (
             <div style={{ color: "#f87171", fontStyle: "italic", marginTop: 4 }}>他最近在问其他人你项目的情况。</div>
           )}
         </div>
-        <div style={{ fontSize: 12, color: "#3a3a4a", fontStyle: "italic", borderTop: "1px solid #1a1a2e", paddingTop: 12 }}>
+        <div style={{ fontSize: 14, color: "#3a3a4a", fontStyle: "italic", borderTop: "1px solid #1a1a2e", paddingTop: 12 }}>
           「{flavor}」
         </div>
         <button onClick={onNext}
-          style={{ background: "#0c0c18", border: "1px solid #2a2a3a", color: "#888", borderRadius: 8, padding: "11px 14px", fontSize: 13, cursor: "pointer", textAlign: "left", transition: "border-color 0.15s, color 0.15s" }}
+          style={{ background: "#0c0c18", border: "1px solid #2a2a3a", color: "#888", borderRadius: 8, padding: "13px 14px", fontSize: 15, cursor: "pointer", textAlign: "left", transition: "border-color 0.15s, color 0.15s" }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = "#4a4a7a"; e.currentTarget.style.color = "#ccc"; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = "#2a2a3a"; e.currentTarget.style.color = "#888"; }}>
           进入第{month + 1}月 →
@@ -709,16 +709,15 @@ function MonthSummaryCard({ data, bossTrust, onNext }) {
 
 function colorDesc(desc) {
   return desc.split(/([\+\-]\d+)/).map((p, i) =>
-    /^\+\d+/.test(p) ? <span key={i} style={{ color: "#4ade80" }}>{p}</span>
-    : /^\-\d+/.test(p) ? <span key={i} style={{ color: "#f87171" }}>{p}</span>
+    /^\+\d+/.test(p) ? <span key={i} style={{ color: "#4ade80" }}>↑</span>
+    : /^\-\d+/.test(p) ? <span key={i} style={{ color: "#f87171" }}>↓</span>
     : <span key={i}>{p}</span>
   );
 }
 
 function effectArrows(netValue) {
   if (netValue === 0) return "—";
-  const dir = netValue > 0 ? "↑" : "↓";
-  return dir.repeat(Math.ceil(Math.abs(netValue) / 5));
+  return netValue > 0 ? "↑" : "↓";
 }
 
 function StatBar({ label, value, color, onClick, displayValue }) {
@@ -726,7 +725,7 @@ function StatBar({ label, value, color, onClick, displayValue }) {
   const danger = pct < 20;
   return (
     <div style={{ flex: 1, minWidth: 0, cursor: onClick ? "pointer" : "default" }} onClick={onClick}>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontFamily: "monospace", color: danger ? "#f87171" : "#666", marginBottom: 3 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontFamily: "monospace", color: danger ? "#f87171" : "#acacac", marginBottom: 3, lineHeight: 1.4 }}>
         <span>{label}</span><span style={{ color: danger ? "#f87171" : color }}>{displayValue !== undefined ? displayValue : value}</span>
       </div>
       <div style={{ height: 5, background: "#111", borderRadius: 3, overflow: "hidden" }}>
@@ -740,8 +739,8 @@ function EffectBadge({ value, label }) {
   if (!value) return null;
   const pos = value > 0;
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 2, padding: "2px 8px", borderRadius: 4, background: pos ? "#052e16" : "#450a0a", border: `1px solid ${pos ? "#166534" : "#7f1d1d"}`, color: pos ? "#4ade80" : "#f87171", fontSize: 11, fontFamily: "monospace" }}>
-      {pos ? "▲" : "▼"} {label} {Math.abs(value)}
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 2, padding: "2px 8px", borderRadius: 4, background: pos ? "#052e16" : "#450a0a", border: `1px solid ${pos ? "#166534" : "#7f1d1d"}`, color: pos ? "#4ade80" : "#f87171", fontSize: 13, fontFamily: "monospace" }}>
+      {pos ? "▲" : "▼"} {label}
     </span>
   );
 }
@@ -750,9 +749,9 @@ function ChoicePreview({ effects, progressBonus }) {
   const np = (effects.progress || 0) + BASE_PROGRESS + (progressBonus || 0);
   const nm = effects.morale || 0;
   const nb = effects.budget || 0;
-  const c = (v) => v > 0 ? "#4ade80" : v < 0 ? "#f87171" : "#444";
+  const c = (v) => v > 0 ? "#4ade80" : v < 0 ? "#f87171" : "#acacac";
   return (
-    <div style={{ display: "flex", gap: 10, marginTop: 6, fontSize: 11, fontFamily: "monospace", opacity: 0.85 }}>
+    <div style={{ display: "flex", gap: 10, marginTop: 6, fontSize: 13, fontFamily: "monospace", opacity: 0.85 }}>
       <span>📈<span style={{ color: c(np) }}>{effectArrows(np)}</span></span>
       <span>💪<span style={{ color: c(nm) }}>{effectArrows(nm)}</span></span>
       <span>💰<span style={{ color: c(nb) }}>{effectArrows(nb)}</span></span>
@@ -767,23 +766,23 @@ function WorkModeSelector({ workMode, setWorkMode, overtimeType, setOvertimeType
     const m = WORK_MODES[key];
     const active = workMode === key;
     return (
-      <button key={key} onClick={() => setWorkMode(key)} style={{ flex: 1, padding: "5px 4px", fontSize: 11, fontFamily: "monospace", background: active ? "#1a1a2e" : "#08080f", border: `1px solid ${active ? "#4a4a7a" : "#1e1e2e"}`, color: active ? "#c0c0e0" : "#444", borderRadius: 6, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
-        <span>{m.emoji}</span><span>{m.label}</span><span style={{ color: active ? "#666" : "#333", fontSize: 10 }}>{m.ap + (apBonus||0)}AP</span>
+      <button key={key} onClick={() => setWorkMode(key)} style={{ flex: 1, padding: "7px 6px", fontSize: 13, fontFamily: "monospace", background: active ? "#1a1a2e" : "#08080f", border: `1px solid ${active ? "#4a4a7a" : "#1e1e2e"}`, color: active ? "#c0c0e0" : "#acacac", borderRadius: 6, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+        <span>{m.emoji}</span><span>{m.label}</span><span style={{ color: active ? "#acacac" : "#acacac", fontSize: 12 }}>{m.ap + (apBonus||0)}AP</span>
       </button>
     );
   };
   return (
     <div style={{ marginBottom: 8 }}>
-      <div style={{ fontSize: 10, color: "#333", marginBottom: 5, fontFamily: "monospace" }}>工作模式 · 剩余 {Math.max(0, WORK_MODES[workMode].ap + (apBonus||0) - apSpent)}AP</div>
+      <div style={{ fontSize: 12, color: "#acacac", marginBottom: 5, fontFamily: "monospace" }}>工作模式 · 剩余 {Math.max(0, WORK_MODES[workMode].ap + (apBonus||0) - apSpent)}AP</div>
       <div style={{ display: "flex", gap: 5, marginBottom: isOvertime ? 5 : 0 }}>
         {["normal", "overtime", "extreme"].map(modeBtn)}
       </div>
       {isOvertime && (
         <div style={{ display: "flex", gap: 5 }}>
-          <button onClick={() => setOvertimeType("pay")} style={{ flex: 1, padding: "4px 6px", fontSize: 11, background: overtimeType === "pay" ? "#0d2010" : "#08080f", border: `1px solid ${overtimeType === "pay" ? "#166534" : "#1e1e2e"}`, color: overtimeType === "pay" ? "#4ade80" : "#444", borderRadius: 6, cursor: "pointer" }}>
+          <button onClick={() => setOvertimeType("pay")} style={{ flex: 1, padding: "7px 8px", fontSize: 13, background: overtimeType === "pay" ? "#0d2010" : "#08080f", border: `1px solid ${overtimeType === "pay" ? "#166534" : "#1e1e2e"}`, color: overtimeType === "pay" ? "#4ade80" : "#acacac", borderRadius: 6, cursor: "pointer" }}>
             💰 付加班费 -{WORK_MODES[workMode].budgetCost}预算
           </button>
-          <button onClick={() => setOvertimeType("pie")} style={{ flex: 1, padding: "4px 6px", fontSize: 11, background: overtimeType === "pie" ? "#2d0a0a" : "#08080f", border: `1px solid ${overtimeType === "pie" ? "#7f1d1d" : "#1e1e2e"}`, color: overtimeType === "pie" ? "#f87171" : "#444", borderRadius: 6, cursor: "pointer" }}>
+          <button onClick={() => setOvertimeType("pie")} style={{ flex: 1, padding: "7px 8px", fontSize: 13, background: overtimeType === "pie" ? "#2d0a0a" : "#08080f", border: `1px solid ${overtimeType === "pie" ? "#7f1d1d" : "#1e1e2e"}`, color: overtimeType === "pie" ? "#f87171" : "#acacac", borderRadius: 6, cursor: "pointer" }}>
             🥧 画饼{pieCount > 0 ? `×${pieCount + 1}` : ""} -{piePenalty}士气
           </button>
         </div>
@@ -811,20 +810,20 @@ function ActionMenu({ state, workMode, apSpent, setApSpent, setState, freezeDone
 
   return (
     <div style={{ marginBottom: 8 }}>
-      <div style={{ fontSize: 10, color: "#333", marginBottom: 5, fontFamily: "monospace" }}>本周行动</div>
+      <div style={{ fontSize: 12, color: "#acacac", marginBottom: 5, fontFamily: "monospace" }}>本周行动</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
         {available.map(action => {
           const canAfford = apLeft >= action.ap;
           return (
-            <button key={action.id} onClick={() => takeAction(action)} disabled={!canAfford} style={{ padding: "4px 10px", fontSize: 11, background: canAfford ? "#0c0c18" : "#080808", border: `1px solid ${canAfford ? "#2a2a3a" : "#161616"}`, color: canAfford ? "#999" : "#333", borderRadius: 6, cursor: canAfford ? "pointer" : "default", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}
+            <button key={action.id} onClick={() => takeAction(action)} disabled={!canAfford} style={{ padding: "7px 10px", fontSize: 13, background: canAfford ? "#0c0c18" : "#080808", border: `1px solid ${canAfford ? "#2a2a3a" : "#161616"}`, color: canAfford ? "#999" : "#acacac", borderRadius: 6, cursor: canAfford ? "pointer" : "default", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}
               onMouseEnter={e => canAfford && (e.currentTarget.style.borderColor = "#4a4a7a")}
               onMouseLeave={e => canAfford && (e.currentTarget.style.borderColor = "#2a2a3a")}>
               <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                 <span>{action.emoji}</span>
                 <span>{action.label}</span>
-                <span style={{ color: "#444", fontFamily: "monospace" }}>{action.ap}AP</span>
+                <span style={{ color: "#acacac", fontFamily: "monospace" }}>{action.ap}AP</span>
               </div>
-              <div style={{ fontSize: 10, fontFamily: "monospace", color: canAfford ? "#555" : "#2a2a2a" }}>{colorDesc(action.desc)}</div>
+              <div style={{ fontSize: 12, fontFamily: "monospace", color: canAfford ? "#acacac" : "#2a2a2a" }}>{colorDesc(action.desc)}</div>
             </button>
           );
         })}
@@ -837,22 +836,22 @@ function ActionMenu({ state, workMode, apSpent, setApSpent, setState, freezeDone
 
 function IntroScreen({ onNext }) {
   return (
-    <div style={{ minHeight: "100vh", background: "#060610", color: "#e0e0e8", fontFamily: "'Segoe UI', system-ui, sans-serif", maxWidth: 420, margin: "0 auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: 32 }}>
+    <div style={{ minHeight: "100vh", background: "#060610", color: "#e0e0e8", fontFamily: "'Segoe UI', system-ui, sans-serif", maxWidth: 420, margin: "0 auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "24px 20px" }}>
       <div style={{ fontSize: 40, marginBottom: 24, textAlign: "center" }}>🎮</div>
-      <div style={{ fontSize: 11, color: "#333", fontFamily: "monospace", lineHeight: 2, marginBottom: 32 }}>
-        <p style={{ color: "#666" }}>你今年35岁。</p>
-        <p style={{ color: "#666" }}>被毕业已经是半年前的事，</p>
-        <p style={{ color: "#666" }}>现在你是一位X滴司机。</p>
-        <p style={{ marginTop: 16, color: "#555" }}>好在你买的车够好，可以跑专车。</p>
-        <p style={{ marginTop: 16, color: "#555" }}>有一天，你接到了一位神秘乘客，</p>
-        <p style={{ color: "#555" }}>他很反常地和你聊了一路的天，直到把他送到了公司园区。</p>
-        <p style={{ marginTop: 16, color: "#555" }}>他说现在他无人可用，那些肥头大耳的老将都被他开除完了，</p>
-        <p style={{ color: "#555" }}>他愿意给你一次机会——</p>
-        <p style={{ marginTop: 16, color: "#444" }}>担任游戏制作人，试用期六个月。</p>
-        <p style={{ color: "#444" }}>你必须在24周内把游戏送上线。</p>
-        <p style={{ color: "#444" }}>否则……开除速度一定会很快！</p>
+      <div style={{ fontSize: 13, color: "#acacac", fontFamily: "monospace", lineHeight: 2, marginBottom: 32 }}>
+        <p style={{ color: "#acacac" }}>你今年35岁。</p>
+        <p style={{ color: "#acacac" }}>被毕业已经是半年前的事，</p>
+        <p style={{ color: "#acacac" }}>现在你是一位X滴司机。</p>
+        <p style={{ marginTop: 16, color: "#acacac" }}>好在你买的车够好，可以跑专车。</p>
+        <p style={{ marginTop: 16, color: "#acacac" }}>有一天，你接到了一位神秘乘客，</p>
+        <p style={{ color: "#acacac" }}>他很反常地和你聊了一路的天，直到把他送到了公司园区。</p>
+        <p style={{ marginTop: 16, color: "#acacac" }}>他说现在他无人可用，那些肥头大耳的老将都被他开除完了，</p>
+        <p style={{ color: "#acacac" }}>他愿意给你一次机会——</p>
+        <p style={{ marginTop: 16, color: "#acacac" }}>担任游戏制作人，试用期六个月。</p>
+        <p style={{ color: "#acacac" }}>你必须在24周内把游戏送上线。</p>
+        <p style={{ color: "#acacac" }}>否则……开除速度一定会很快！</p>
       </div>
-      <button onClick={onNext} style={{ background: "#0c0c18", border: "1px solid #2a2a3a", color: "#888", borderRadius: 8, padding: "12px 24px", fontSize: 13, cursor: "pointer", width: "100%", transition: "all 0.15s" }}
+      <button onClick={onNext} style={{ background: "#0c0c18", border: "1px solid #2a2a3a", color: "#888", borderRadius: 8, padding: "13px 14px", fontSize: 15, cursor: "pointer", width: "100%", transition: "all 0.15s" }}
         onMouseEnter={e => { e.currentTarget.style.borderColor = "#4a4a7a"; e.currentTarget.style.color = "#ccc"; }}
         onMouseLeave={e => { e.currentTarget.style.borderColor = "#2a2a3a"; e.currentTarget.style.color = "#888"; }}>
         接这个项目 →
@@ -867,31 +866,31 @@ function CardScreen({ step, pickedCards, onPick, onNext }) {
 
   return (
     <div style={{ minHeight: "100vh", background: "#060610", color: "#e0e0e8", fontFamily: "'Segoe UI', system-ui, sans-serif", maxWidth: 420, margin: "0 auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: 24 }}>
-      <div style={{ fontSize: 10, color: "#333", fontFamily: "monospace", marginBottom: 12 }}>
+      <div style={{ fontSize: 12, color: "#acacac", fontFamily: "monospace", marginBottom: 12 }}>
         {step + 1} / {CARD_GROUPS.length}
       </div>
-      <div style={{ fontSize: 16, fontWeight: 700, color: "#999", marginBottom: 20 }}>{group.title}</div>
+      <div style={{ fontSize: 17, fontWeight: 700, color: "#999", marginBottom: 20 }}>{group.title}</div>
       <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
         {group.cards.map(card => {
           const isSelected = picked?.id === card.id;
           return (
-            <button key={card.id} onClick={() => !picked && onPick(step, card)} style={{ flex: 1, padding: "16px 8px", background: isSelected ? "#0d1a0d" : "#0c0c18", border: `1px solid ${isSelected ? "#166534" : "#1e1e2e"}`, borderRadius: 10, cursor: picked ? "default" : "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, transition: "all 0.2s" }}
+            <button key={card.id} onClick={() => !picked && onPick(step, card)} style={{ flex: 1, padding: "16px 10px", background: isSelected ? "#0d1a0d" : "#0c0c18", border: `1px solid ${isSelected ? "#166534" : "#1e1e2e"}`, borderRadius: 10, cursor: picked ? "default" : "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, transition: "all 0.2s" }}
               onMouseEnter={e => !picked && (e.currentTarget.style.borderColor = "#4a4a7a")}
               onMouseLeave={e => !picked && !isSelected && (e.currentTarget.style.borderColor = "#1e1e2e")}>
               <span style={{ fontSize: 32 }}>{card.emoji}</span>
-              <span style={{ fontSize: 12, color: isSelected ? "#4ade80" : "#888" }}>{card.label}</span>
+              <span style={{ fontSize: 14, color: isSelected ? "#4ade80" : "#888" }}>{card.label}</span>
             </button>
           );
         })}
       </div>
       {picked && (
         <div style={{ background: "#0c0c18", border: "1px solid #1a2a1a", borderRadius: 10, padding: "12px 14px", marginBottom: 20, animation: "floatIn 0.3s ease" }}>
-          <div style={{ fontSize: 10, color: "#444", marginBottom: 4, fontFamily: "monospace" }}>{picked.emoji} {picked.label}</div>
-          <div style={{ fontSize: 13, color: "#4ade80", lineHeight: 1.6 }}>{picked.reveal}</div>
+          <div style={{ fontSize: 12, color: "#acacac", marginBottom: 4, fontFamily: "monospace" }}>{picked.emoji} {picked.label}</div>
+          <div style={{ fontSize: 15, color: "#4ade80", lineHeight: 1.6 }}>{picked.reveal}</div>
         </div>
       )}
       {picked && (
-        <button onClick={onNext} style={{ background: "#0c0c18", border: "1px solid #2a2a3a", color: "#888", borderRadius: 8, padding: "12px 24px", fontSize: 13, cursor: "pointer", width: "100%", transition: "all 0.15s" }}
+        <button onClick={onNext} style={{ background: "#0c0c18", border: "1px solid #2a2a3a", color: "#888", borderRadius: 8, padding: "13px 14px", fontSize: 15, cursor: "pointer", width: "100%", transition: "all 0.15s" }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = "#4a4a7a"; e.currentTarget.style.color = "#ccc"; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = "#2a2a3a"; e.currentTarget.style.color = "#888"; }}>
           {step < CARD_GROUPS.length - 1 ? "下一张 →" : "开始制作！🚀"}
@@ -946,7 +945,7 @@ const DIRECTION_SELECT_EVENT = {
   id: "direction_select",
   name: "方向选择",
   emoji: "🎯",
-  color: "#6366f1",
+  color: "#7678f0",
   tagline: "立项评审前一天",
   situation: "市场上什么都有人做，但不是什么都有人买单。你需要定下方向。",
   dialogue: "老板在等你的立项方案。\n\n你必须在这几天确定产品方向，否则……他会帮你选。",
@@ -1030,6 +1029,22 @@ export default function App() {
      const s = gameState || state;
      const newWeek = s.week + 1;
      
+     if (s.week === 1 && !s.narrationsUsed?.includes("narrateA") && s.marketYear && YEAR_DATA[s.marketYear]) {
+       const yearData = YEAR_DATA[s.marketYear];
+       return {
+         id: "narration",
+         type: "narration",
+         text: yearData.narrateA,
+         narrateKey: "narrateA",
+         emoji: "📰",
+         color: "#64748b",
+         name: "行业动态",
+         tagline: "",
+         situation: "",
+         dialogue: yearData.narrateA,
+       };
+     }
+     
      if (newWeek === 2 && !s.directionChosen) {
        const availableDirs = COMPANY_DIRECTION_FILTER[s.companySize] || COMPANY_DIRECTION_FILTER.mid;
        const shuffled = [...availableDirs].sort(() => Math.random() - 0.5).slice(0, 3);
@@ -1086,19 +1101,22 @@ export default function App() {
      }
      
      const monthEnd = (newWeek - 1) % 4 === 0;
+     
      if (!monthEnd && s.marketYear && YEAR_DATA[s.marketYear]) {
        const used = s.narrationsUsed || [];
        const yearData = YEAR_DATA[s.marketYear];
-       const availableNarrations = [];
-       if (!used.includes("narrateA")) availableNarrations.push("narrateA");
-       if (!used.includes("narrateB")) availableNarrations.push("narrateB");
-       if (availableNarrations.length > 0 && Math.random() < 0.25) {
-         const narrateKey = availableNarrations[Math.floor(Math.random() * availableNarrations.length)];
+       if (!used.includes("narrateB") && Math.random() < 0.25) {
          return {
            id: "narration",
            type: "narration",
-           text: yearData[narrateKey],
-           narrateKey,
+           text: yearData.narrateB,
+           narrateKey: "narrateB",
+           emoji: "📰",
+           color: "#64748b",
+           name: "行业动态",
+           tagline: "",
+           situation: "",
+           dialogue: yearData.narrateB,
          };
        }
      }
@@ -1275,18 +1293,40 @@ export default function App() {
        return;
      }
      
-     if (event?.type === "narration") {
-       setState(prev => ({
-         ...prev,
-         narrationsUsed: [...(prev.narrationsUsed || []), event.narrateKey],
-       }));
-       setLastResult("");
-       setLastEffects({});
-       setLastWorkEffect(workEffect);
-       setPieCount(newPieCount);
-       setShowResult(true);
-       return;
-     }
+      if (event?.type === "narration") {
+        setState(prev => {
+          const newWeek = prev.week + 1;
+          const expectedProgress = (newWeek / TOTAL_WEEKS) * 100;
+          const newMomentum = prev.progress > expectedProgress + 10 ? 1 : prev.progress < expectedProgress - 10 ? -1 : 0;
+          let newQualityDebt = prev.qualityDebt || 0;
+          if (!prev.overtimeThisWeek) {
+            newQualityDebt = Math.max(0, newQualityDebt - 2);
+          }
+          const newTeamSlots = prev.teamSlots.map(m => ({
+            ...m,
+            weeksJoined: (m.weeksJoined || 0) + 1,
+            contribution: (m.weeksJoined || 0) >= 6
+              ? { ...m.contribution, progressEfficiency: Math.min(m.contribution.progressEfficiency + 0.3, 1.0) }
+              : m.contribution
+          }));
+          return {
+            ...prev,
+            week: newWeek,
+            survived: prev.survived + 1,
+            progressMomentum: newMomentum,
+            qualityDebt: newQualityDebt,
+            teamSlots: newTeamSlots,
+            overtimeThisWeek: false,
+            narrationsUsed: [...(prev.narrationsUsed || []), event.narrateKey],
+          };
+        });
+        setLastResult("");
+        setLastEffects({});
+        setLastWorkEffect(workEffect);
+        setPieCount(newPieCount);
+        setShowResult(true);
+        return;
+      }
     let pendingAdd = null;
     let bossReact = "";
     let lucidPhase1 = state.lucidPhase1;
@@ -1643,8 +1683,8 @@ export default function App() {
       <div style={s.endWrap}>
         <div style={{ fontSize: 72 }}>🏆</div>
         <div style={{ fontSize: 22, fontWeight: 700, color: "#facc15", margin: "12px 0 6px" }}>大获全胜！</div>
-        <div style={{ color: "#555", fontSize: 12, marginBottom: 6 }}>{timeLabel} 交付</div>
-        <div style={{ color: "#888", fontSize: 13, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
+        <div style={{ color: "#acacac", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
+        <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
           你扛住了 <span style={{ color: "#c084fc" }}>{state.survived} 个延期人格</span> 的轮番骚扰，成功把游戏送上线。<br /><br />不仅准时交付，团队士气和老板信任都维持在高位。<br />业内都在讨论这个新项目。<br />老板看你的眼神都不一样了。
         </div>
         <button onClick={restart} style={s.endBtn}>再来一局</button>
@@ -1657,8 +1697,8 @@ export default function App() {
       <div style={s.endWrap}>
         <div style={{ fontSize: 72 }}>🎮</div>
         <div style={{ fontSize: 22, fontWeight: 700, color: "#4ade80", margin: "12px 0 6px" }}>游戏上线了</div>
-        <div style={{ color: "#555", fontSize: 12, marginBottom: 6 }}>{timeLabel} 交付</div>
-        <div style={{ color: "#888", fontSize: 13, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
+        <div style={{ color: "#acacac", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
+        <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
           你扛住了 <span style={{ color: "#c084fc" }}>{state.survived} 个延期人格</span> 的轮番骚扰，成功把游戏送上线。<br /><br />活下来了。你觉得你可以再做一次，做得更好。<br />但没有人问你。
         </div>
         <button onClick={restart} style={s.endBtn}>再来一局</button>
@@ -1671,8 +1711,8 @@ export default function App() {
       <div style={s.endWrap}>
         <div style={{ fontSize: 72 }}>💥</div>
         <div style={{ fontSize: 22, fontWeight: 700, color: "#f87171", margin: "12px 0 6px" }}>差评如潮</div>
-        <div style={{ color: "#555", fontSize: 12, marginBottom: 6 }}>{timeLabel} 交付</div>
-        <div style={{ color: "#888", fontSize: 13, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
+        <div style={{ color: "#acacac", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
+        <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
           上线了。然后你开始看评论区。<br /><br />Bug报告满天飞，玩家愤怒，评分一跌再跌。<br /><br />你关掉手机，决定先睡一觉。<br />明天醒来再说吧。
         </div>
         <button onClick={restart} style={s.endBtn}>再来一局</button>
@@ -1685,9 +1725,9 @@ export default function App() {
       <div style={s.endWrap}>
         <div style={{ fontSize: 72 }}>📦</div>
         <div style={{ fontSize: 22, fontWeight: 700, color: "#f87171", margin: "12px 0 6px" }}>项目延期了</div>
-        <div style={{ color: "#555", fontSize: 12, marginBottom: 6 }}>{timeLabel}</div>
-        <div style={{ color: "#888", fontSize: 13, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 6 }}>{state.loseReason}</div>
-        <div style={{ color: "#555", fontSize: 12, marginBottom: 24 }}>撑过了 {state.survived} 个延期人格，进度达到 {state.progress}%</div>
+        <div style={{ color: "#acacac", fontSize: 14, marginBottom: 6 }}>{timeLabel}</div>
+        <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 6 }}>{state.loseReason}</div>
+        <div style={{ color: "#acacac", fontSize: 14, marginBottom: 24 }}>撑过了 {state.survived} 个延期人格，进度达到 {state.progress}%</div>
         <button onClick={restart} style={s.endBtn}>重新开始</button>
       </div>
     </div>
@@ -1699,39 +1739,39 @@ export default function App() {
   const header = (
     <div style={s.header}>
       <div>
-        <div style={{ fontSize: 12, fontWeight: 700, color: "#ddd", letterSpacing: "0.03em" }}>完蛋！我被延期包围了</div>
-        <div style={{ fontSize: 10, color: "#444", marginTop: 1 }}>{phase}</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#ddd", letterSpacing: "0.03em" }}>完蛋！我被延期包围了</div>
+        <div style={{ fontSize: 12, color: "#acacac", marginTop: 1 }}>{phase}</div>
       </div>
       <div style={{ textAlign: "right" }}>
-        <div style={{ fontSize: 11, fontFamily: "monospace", color: weeksLeft < 4 ? "#f87171" : "#555" }}>{timeLabel}</div>
-        <div style={{ fontSize: 10, color: weeksLeft < 4 ? "#7f1d1d" : "#333", marginTop: 1 }}>剩余 {Math.max(0, weeksLeft)} 周</div>
+        <div style={{ fontSize: 13, fontFamily: "monospace", color: weeksLeft < 4 ? "#f87171" : "#acacac" }}>{timeLabel}</div>
+        <div style={{ fontSize: 12, color: weeksLeft < 4 ? "#7f1d1d" : "#acacac", marginTop: 1 }}>剩余 {Math.max(0, weeksLeft)} 周</div>
         {state.progressMomentum !== 0 && (
-          <div style={{ fontSize: 10, fontFamily: "monospace", marginTop: 2, color: state.progressMomentum > 0 ? "#4ade80" : "#f87171" }}>
+          <div style={{ fontSize: 12, fontFamily: "monospace", marginTop: 2, color: state.progressMomentum > 0 ? "#4ade80" : "#f87171" }}>
             {state.progressMomentum > 0 ? "📈 进度超前 +1" : "📉 进度落后 -1"}
           </div>
          )}
          {state.hireBurdenWeeksLeft > 0 && (
-           <div style={{ fontSize: 10, fontFamily: "monospace", marginTop: 2, color: "#f97316" }}>
+           <div style={{ fontSize: 12, fontFamily: "monospace", marginTop: 2, color: "#f97316" }}>
              🧑‍💻 新人培训中，还剩 {state.hireBurdenWeeksLeft} 周  进度 -{state.hireBurdenRate}/周
            </div>
          )}
          {state.confidant && (
-           <div style={{ fontSize: 10, fontFamily: "monospace", marginTop: 2, color: "#a78bfa" }}>
+           <div style={{ fontSize: 12, fontFamily: "monospace", marginTop: 2, color: "#a78bfa" }}>
              🤝 心腹：{state.confidant.role}
            </div>
          )}
         {state.lucidConfidant?.subtype === "external" && (
-          <div style={{ fontSize: 10, fontFamily: "monospace", marginTop: 2, color: "#94a3b8" }}>
+          <div style={{ fontSize: 12, fontFamily: "monospace", marginTop: 2, color: "#94a3b8" }}>
             📱 线人：他
           </div>
         )}
         {state.lucidConfidant?.subtype === "unstable" && (
-          <div style={{ fontSize: 10, fontFamily: "monospace", marginTop: 2, color: "#fbbf24" }}>
+          <div style={{ fontSize: 12, fontFamily: "monospace", marginTop: 2, color: "#fbbf24" }}>
             ⚡ 线人：他（剩余{state.lucidConfidant.usesLeft}次）
           </div>
         )}
         {state.lucidConfidant?.subtype === "inner" && (
-          <div style={{ fontSize: 10, fontFamily: "monospace", marginTop: 2, color: "#e2e8f0" }}>
+          <div style={{ fontSize: 12, fontFamily: "monospace", marginTop: 2, color: "#e2e8f0" }}>
             🔬 心腹：他（内部）
           </div>
         )}
@@ -1751,7 +1791,7 @@ export default function App() {
         <StatBar label="⭐ 信任" value={state.bossTrust * 10} displayValue={state.bossTrust} color="#facc15" onClick={() => setActiveTip(activeTip === "trust" ? null : "trust")} />
       </div>
       {activeTip === "progress" && (
-        <div style={{ background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 8, padding: "10px 14px", margin: "-8px 18px 8px", fontSize: 11, color: "#666", fontFamily: "monospace", lineHeight: 1.8 }}>
+        <div style={{ background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 8, padding: "10px 14px", margin: "-8px 18px 8px", fontSize: 13, color: "#acacac", fontFamily: "monospace", lineHeight: 1.8 }}>
           📈 进度<br />
           达到 100% 游戏上线，这是唯一的胜利条件。<br />
           每周基础 +3 · 冲进度行动 +3 · 事件影响不定<br />
@@ -1759,7 +1799,7 @@ export default function App() {
         </div>
       )}
       {activeTip === "morale" && (
-        <div style={{ background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 8, padding: "10px 14px", margin: "-8px 18px 8px", fontSize: 11, color: "#666", fontFamily: "monospace", lineHeight: 1.8 }}>
+        <div style={{ background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 8, padding: "10px 14px", margin: "-8px 18px 8px", fontSize: 13, color: "#acacac", fontFamily: "monospace", lineHeight: 1.8 }}>
           💪 士气<br />
           归零：团队集体摆烂，项目解散。<br />
           &lt; 35：危机安抚行动解锁（2AP，+25士气）<br />
@@ -1768,7 +1808,7 @@ export default function App() {
         </div>
       )}
       {activeTip === "budget" && (
-        <div style={{ background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 8, padding: "10px 14px", margin: "-8px 18px 8px", fontSize: 11, color: "#666", fontFamily: "monospace", lineHeight: 1.8 }}>
+        <div style={{ background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 8, padding: "10px 14px", margin: "-8px 18px 8px", fontSize: 13, color: "#acacac", fontFamily: "monospace", lineHeight: 1.8 }}>
           💰 预算<br />
           归零：项目被砍，直接失败。<br />
           &lt; 25：紧急融资行动解锁（3AP，+18~32预算）<br />
@@ -1777,7 +1817,7 @@ export default function App() {
         </div>
       )}
       {activeTip === "trust" && (
-        <div style={{ background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 8, padding: "10px 14px", margin: "-8px 18px 8px", fontSize: 11, color: "#666", fontFamily: "monospace", lineHeight: 1.8 }}>
+        <div style={{ background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 8, padding: "10px 14px", margin: "-8px 18px 8px", fontSize: 13, color: "#acacac", fontFamily: "monospace", lineHeight: 1.8 }}>
           ⭐ 老板信任度（0-10）<br />
           0：触发「谈话」事件，可能直接失败。<br />
           ≤ 2：每月底预算自动 -5，他在打听你的项目<br />
@@ -1815,7 +1855,7 @@ export default function App() {
             </div>
             <div style={{ marginTop: 16 }}>
               {apLeft > 0 && (
-                <div style={{ fontSize: 10, color: "#555", fontFamily: "monospace", marginBottom: 8 }}>
+                <div style={{ fontSize: 12, color: "#acacac", fontFamily: "monospace", marginBottom: 8 }}>
                   你还有 {apLeft} AP 未使用，确认后将消失。
                 </div>
               )}
@@ -1835,25 +1875,30 @@ export default function App() {
                    <div style={{ ...s.charGlow, background: `radial-gradient(ellipse at 50% 60%, ${event.color}18 0%, transparent 65%)` }} />
                    <div style={{ fontSize: 52, position: "relative", zIndex: 1, animation: "floatIn 0.4s ease" }}>{event.emoji}</div>
                    <div style={{ color: event.color, fontSize: 15, fontWeight: 700, position: "relative", zIndex: 1 }}>{event.name}</div>
-                   <div style={{ color: "#3a3a4a", fontSize: 10, position: "relative", zIndex: 1, marginTop: 2 }}>{event.tagline}</div>
+                   <div style={{ color: "#acacac", fontSize: 12, position: "relative", zIndex: 1, marginTop: 2 }}>{event.tagline}</div>
                  </div>
                )}
 
                {event.type === "narration" ? (
                  <div style={s.dialogueBox}>
-                   <div style={{ fontSize: 13, color: "#888", lineHeight: 1.7, fontStyle: "italic" }}>{event.text}</div>
+                   <div style={{ fontSize: 15, color: "#888", lineHeight: 1.7, fontStyle: "italic" }}>{event.text}</div>
                  </div>
                ) : (
                  <div style={s.dialogueBox}>
-                   <div style={{ fontSize: 10, color: "#444", marginBottom: 6 }}>{event.situation}</div>
-                   <div style={{ fontSize: 13, color: "#ccc", lineHeight: 1.7 }}>{event.dialogue}</div>
+                   <div style={{ fontSize: 12, color: "#acacac", marginBottom: 6 }}>{event.situation}</div>
+                   <div style={{ fontSize: 15, color: "#ccc", lineHeight: 1.7 }}>{event.dialogue}</div>
                  </div>
                )}
 
                 {event.type === "narration" ? (
                   <button onClick={() => {
-                    handleChoice({}, 0);
-                  }} style={{ ...s.choiceBtn, borderColor: "#2a2a3e", justifyContent: "center", color: "#666" }}>
+                    setState(prev => ({
+                      ...prev,
+                      narrationsUsed: [...(prev.narrationsUsed || []), event.narrateKey],
+                    }));
+                    setEvent(pickEvent({ ...state, narrationsUsed: [...(state.narrationsUsed || []), event.narrateKey] }));
+                    setAnimKey(k => k + 1);
+                  }} style={{ ...s.choiceBtn, borderColor: "#2a2a3e", justifyContent: "center", color: "#acacac" }}>
                     继续 →
                   </button>
                 ) : !showResult ? (
@@ -1939,7 +1984,7 @@ export default function App() {
                       if (isHireReveal && displayDialogue) {
                         return (
                           <div key="dialogue">
-                            <div style={{ fontSize: 12, color: "#e0e0e8", lineHeight: 1.7, marginBottom: 16 }}>{displayDialogue}</div>
+                            <div style={{ fontSize: 14, color: "#e0e0e8", lineHeight: 1.7, marginBottom: 16 }}>{displayDialogue}</div>
                           </div>
                         );
                       }
@@ -1964,7 +2009,7 @@ export default function App() {
                             onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e1e2e"; e.currentTarget.style.background = "#0c0c18"; }}>
                             <div>
                               <div style={{ display: "flex", alignItems: "flex-start" }}>
-                                {getOptionLabel(i) && <span style={{ color: event.color, marginRight: 8, fontFamily: "monospace", fontSize: 11, flexShrink: 0 }}>{getOptionLabel(i)}.</span>}
+                                {getOptionLabel(i) && <span style={{ color: event.color, marginRight: 8, fontFamily: "monospace", fontSize: 13, flexShrink: 0 }}>{getOptionLabel(i)}.</span>}
                                 <span>{c.text}{disableReason}</span>
                               </div>
                               <ChoicePreview effects={c.effects} progressBonus={(state.progressBonus || 0) + WORK_MODES[workMode].progressBonus + (state.progressMomentum || 0)} />
@@ -1976,14 +2021,14 @@ export default function App() {
                  </div>
                 ) : (
                  <div style={s.result}>
-                   <div style={{ fontSize: 13, color: "#bbb", lineHeight: 1.7, marginBottom: 10 }}>{lastResult}</div>
+                   <div style={{ fontSize: 15, color: "#bbb", lineHeight: 1.7, marginBottom: 10 }}>{lastResult}</div>
                    {lastConfidantReveal && (
-                     <div style={{ fontSize: 11, color: "#a78bfa", fontFamily: "monospace", paddingTop: 8, borderTop: "1px solid #1a1a2e", marginTop: 2, marginBottom: 8 }}>
+                     <div style={{ fontSize: 13, color: "#a78bfa", fontFamily: "monospace", paddingTop: 8, borderTop: "1px solid #1a1a2e", marginTop: 2, marginBottom: 8 }}>
                        🤝 {lastConfidantReveal}
                      </div>
                    )}
                    {lastBossReaction && (
-                     <div style={{ fontSize: 10, color: "#444", marginTop: 6, marginBottom: 8 }}>
+                     <div style={{ fontSize: 12, color: "#acacac", marginTop: 6, marginBottom: 8 }}>
                        {lastBossReaction}
                      </div>
                    )}
@@ -1996,7 +2041,7 @@ export default function App() {
                    )}
                    {lastWorkEffect && lastWorkEffect.workMode !== "normal" && (
                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12, paddingTop: 8, borderTop: "1px solid #1a1a2e" }}>
-                      <span style={{ fontSize: 10, color: "#444", width: "100%", fontFamily: "monospace" }}>{WORK_MODES[lastWorkEffect.workMode].emoji} {WORK_MODES[lastWorkEffect.workMode].label}</span>
+                      <span style={{ fontSize: 12, color: "#acacac", width: "100%", fontFamily: "monospace" }}>{WORK_MODES[lastWorkEffect.workMode].emoji} {WORK_MODES[lastWorkEffect.workMode].label}</span>
                       <EffectBadge value={lastWorkEffect.progressBonus} label="进度" />
                       {lastWorkEffect.overtimeType === "pay"
                         ? <EffectBadge value={-lastWorkEffect.budgetCost} label="预算" />
@@ -2005,7 +2050,7 @@ export default function App() {
                     </div>
                   )}
                   <button onClick={nextEvent} style={{ ...s.choiceBtn, borderColor: "#2a2a3a", textAlign: "center", justifyContent: "center", color: "#888" }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = "#444"; e.currentTarget.style.color = "#ccc"; }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "#acacac"; e.currentTarget.style.color = "#ccc"; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = "#2a2a3a"; e.currentTarget.style.color = "#888"; }}>
                     下一位来访者 →
                   </button>
@@ -2030,8 +2075,8 @@ const s = {
   charGlow: { position: "absolute", inset: 0, pointerEvents: "none" },
   dialogueBox: { background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 10, padding: "12px 14px", marginBottom: 12 },
   choices: { display: "flex", flexDirection: "column", gap: 8 },
-  choiceBtn: { background: "#0c0c18", border: "1px solid #1e1e2e", color: "#ccc", borderRadius: 8, padding: "11px 14px", fontSize: 13, textAlign: "left", cursor: "pointer", transition: "border-color 0.15s, background 0.15s", lineHeight: 1.5, display: "flex", alignItems: "flex-start", width: "100%" },
+  choiceBtn: { background: "#0c0c18", border: "1px solid #1e1e2e", color: "#ccc", borderRadius: 8, padding: "11px 14px", fontSize: 15, textAlign: "left", cursor: "pointer", transition: "border-color 0.15s, background 0.15s", lineHeight: 1.5, display: "flex", alignItems: "flex-start", width: "100%" },
   result: { background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 10, padding: "14px" },
-  endWrap: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32, minHeight: "100vh" },
-  endBtn: { background: "#0c0c18", border: "1px solid #2a2a3a", color: "#ccc", borderRadius: 8, padding: "11px 28px", fontSize: 13, cursor: "pointer" },
+  endWrap: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px 20px", minHeight: "100vh" },
+  endBtn: { background: "#0c0c18", border: "1px solid #2a2a3a", color: "#ccc", borderRadius: 8, padding: "13px 14px", fontSize: 15, cursor: "pointer" },
 };
