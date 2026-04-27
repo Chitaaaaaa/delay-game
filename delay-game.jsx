@@ -9,6 +9,73 @@ function weekDisplay(week) {
   return { month, weekOfMonth, label: `第${month}月 第${weekOfMonth}周` };
 }
 
+// ---- Patch 19 helpers ------------------------------------------------------
+
+function getWeeklyBudgetDrain(month) {
+  if (month <= 2) return 2;
+  if (month <= 4) return 4;
+  return 6;
+}
+
+function getMoraleEfficiency(morale) {
+  if (morale >= 80) return 1.2;
+  if (morale >= 50) return 1.0;
+  if (morale >= 35) return 0.8;
+  if (morale >= 20) return 0.6;
+  return 0.4;
+}
+
+function getMoraleDecay(qualityDebt, teamSize, month) {
+  const base = 1;
+  const qualityPressure = Math.floor(qualityDebt / 30);
+  const teamBurden = Math.max(0, teamSize - 3) * 0.5;
+  const phasePressure = Math.floor((month - 1) / 2);
+  return base + qualityPressure + teamBurden + phasePressure;
+}
+
+function getPeopleDecayMultiplier(peopleScore) {
+  if (peopleScore >= 5) return 1.0;
+  if (peopleScore >= 3) return 1.2;
+  return 1.5;
+}
+
+function getCrisisComfortEffect(useCount) {
+  return Math.max(10, Math.round(25 / (1 + 0.3 * useCount)));
+}
+
+function getTeamComfortEffect(useCount) {
+  return Math.max(5, Math.round(10 / (1 + 0.2 * useCount)));
+}
+
+function getHiddenScore(state) {
+  return state.honesty + state.people + state.quality + state.judgment + state.grit;
+}
+
+function getEndingTier(hiddenScore) {
+  if (hiddenScore >= 40) return "legendary";
+  if (hiddenScore >= 30) return "excellent";
+  if (hiddenScore >= 20) return "profitable";
+  return "average";
+}
+
+function getEventWeight(eventId, kpiState) {
+  const mgmt = ["corp_kpi","corp_approval","kpi_review","manpower","bet_deal",
+    "market_trend","thunder","zombie_reveal","water_reveal","stock_trap",
+    "blamer","quitter","brooks_law","paratrooper","meeting","firefighter"];
+  const creative = ["dreamer","impulse","castle","visionary","cowboy","legacy",
+    "perfectionist","preacher","lucid_p1"];
+
+  if (kpiState === "tight") {
+    if (mgmt.includes(eventId)) return 1.3;
+    if (creative.includes(eventId)) return 0.7;
+  }
+  if (kpiState === "loose") {
+    if (mgmt.includes(eventId)) return 0.7;
+    if (creative.includes(eventId)) return 1.3;
+  }
+  return 1.0;
+}
+
 // ---- work mode -------------------------------------------------------------
 
 const WORK_MODES = {
@@ -76,17 +143,30 @@ const CARD_GROUPS = [
   {
     title: "你上一份工作是……",
     cards: [
-      { id: "bg_designer",  emoji: "🎮", label: "策划出身",  reveal: "每周基础进度+1，熟悉开发节奏",          init: s => ({ ...s, progressBonus: s.progressBonus + 1 }) },
-      { id: "bg_engineer",  emoji: "💻", label: "程序出身",  reveal: "每周AP+1，技术直觉好，沟通效率高",      init: s => ({ ...s, apBonusPerWeek: (s.apBonusPerWeek||0) + 1 }) },
-      { id: "bg_artist",    emoji: "🎨", label: "美术出身",  reveal: "初始士气+10，对视觉方案有品味",          init: s => ({ ...s, morale: Math.min(100, s.morale + 10) }) },
-      { id: "bg_pm",        emoji: "📊", label: "PM出身",    reveal: "预算+15，向上管理有一套",               init: s => ({ ...s, budget: Math.min(130, s.budget + 15) }) },
-      { id: "bg_outsider",  emoji: "🏦", label: "跨行业",    reveal: "预算+20，但团队对你天然怀疑，士气-10",  init: s => ({ ...s, budget: Math.min(130, s.budget + 20), morale: Math.max(10, s.morale - 10) }) },
+      { id: "bg_designer",  emoji: "🎮", label: "策划出身",  reveal: "每周基础进度+1，熟悉开发节奏",          init: s => ({ ...s, progressBonus: s.progressBonus + 1, playerBackground: "designer" }) },
+      { id: "bg_engineer",  emoji: "💻", label: "程序出身",  reveal: "每周AP+1，技术直觉好，沟通效率高",      init: s => ({ ...s, apBonusPerWeek: (s.apBonusPerWeek||0) + 1, playerBackground: "engineer" }) },
+      { id: "bg_artist",    emoji: "🎨", label: "美术出身",  reveal: "初始士气+10，对视觉方案有品味",          init: s => ({ ...s, morale: Math.min(100, s.morale + 10), playerBackground: "artist" }) },
+      { id: "bg_pm",        emoji: "📊", label: "PM出身",    reveal: "预算+15，向上管理有一套",               init: s => ({ ...s, budget: Math.min(130, s.budget + 15), playerBackground: "pm" }) },
+      { id: "bg_outsider",  emoji: "🏦", label: "跨行业",    reveal: "预算+20，但团队对你天然怀疑，士气-10",  init: s => ({ ...s, budget: Math.min(130, s.budget + 20), morale: Math.max(10, s.morale - 10), playerBackground: "outsider" }) },
+    ]
+  },
+  {
+    title: "你从哪个行业来？",
+    subtitle: "不同的过去，不同的盲点。",
+    condition: (pickedCards) => pickedCards.some(c => c && c.id === "bg_outsider"),
+    cards: [
+      { id: "ind_realestate", emoji: "🏠", label: "地产",   reveal: "你懂得如何和甲方谈钱。游戏行业的人，谈判能力普遍让你失望。",   init: s => ({ ...s, industryBackground: "realestate" }) },
+      { id: "ind_education",  emoji: "📚", label: "教培",   reveal: "你擅长激励人，但你低估了游戏行业有多混乱。",                 init: s => ({ ...s, industryBackground: "education" }) },
+      { id: "ind_finance",    emoji: "💰", label: "金融",   reveal: "数字对你来说是母语。团队觉得你不像做游戏的。",               init: s => ({ ...s, industryBackground: "finance" }) },
+      { id: "ind_film",       emoji: "🎬", label: "影视",   reveal: "你见过更大的烂摊子。这里的混乱，你不陌生。",               init: s => ({ ...s, industryBackground: "film" }) },
+      { id: "ind_blockchain", emoji: "⛓️", label: "区块链/Web3", reveal: "你有一套独特的融资话术。团队第一周就在背后议论你。",    init: s => ({ ...s, industryBackground: "blockchain", morale: Math.max(10, s.morale - 10) }) },
+      { id: "ind_mcn",        emoji: "📱", label: "MCN/直播", reveal: "你懂流量，懂老板要什么。但你完全不懂这个东西怎么做出来。", init: s => ({ ...s, industryBackground: "mcn" }) },
     ]
   },
 ];
 
 function buildInitialState(pickedCards) {
-  const years = [2010, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026];
+  const years = [2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026];
   const marketYear = years[Math.floor(Math.random() * years.length)];
   
   let companySize = "mid";
@@ -108,12 +188,37 @@ function buildInitialState(pickedCards) {
     ipActive = true;
   }
   
-  let s = { week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust: Math.floor(Math.random() * 6) + 3, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, directionChosen: false, directionDelayPenalty: false, marketYear, companySize, kpiState: "normal", ipType, ipActive, ipProtectUsed: 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, manageUpCount: 0 };
-  for (const card of pickedCards) s = card.init(s);
+  let s = { week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust: Math.floor(Math.random() * 6) + 3, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, directionChosen: false, directionDelayPenalty: false, marketYear, companySize, kpiState: "normal", ipType, ipActive, ipProtectUsed: 0, ipProtectCount: ipType === "strong" ? 2 : 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, honestyHintShown: false, peopleHintShown: false, qualityHintShown: false };
+  for (const card of pickedCards) { if (card) s = card.init(s); }
   return s;
 }
 
 // ---- weekly actions --------------------------------------------------------
+
+const CAMPUS_TAGS = ["算法竞赛参赛经历", "实习半年", "设计学院优等生", "开源项目贡献者", "游戏爱好者"];
+const SOCIAL_TAGS = ["前大厂经历", "独立游戏开发者", "带过5人团队", "上线过3款产品", "擅长跨部门协作"];
+
+const ROLE_NAMES = {
+  engineer: "程序员",
+  designer: "设计师",
+  producer: "制作人",
+  qa: "测试",
+  other: "其他"
+};
+
+const SENIORITY_NAMES = {
+  veteran: "老手",
+  mid: "中级",
+  fresh: "应届生"
+};
+
+const ROLE_EMOJI = {
+  engineer: "🔨",
+  designer: "🎨",
+  producer: "📋",
+  qa: "🔍",
+  other: "🧩"
+};
 
 function getTeamProgressCoeff(slots) {
   const count = slots.length;
@@ -124,59 +229,69 @@ function getTeamProgressCoeff(slots) {
   return 0;
 }
 
+function getDirectionMismatchPenalty(gameDirection, marketYear) {
+  if (!gameDirection) return 15;
+  const yearData = YEAR_DATA[marketYear];
+  if (!yearData) return 15;
+  if (yearData.hot.includes(gameDirection)) return 0;
+  if (yearData.mocked === gameDirection) return 15;
+  return 30;
+}
+
+function getProductHealthScore(qualityDebt, gameDirection, marketYear) {
+  const directionPenalty = getDirectionMismatchPenalty(gameDirection, marketYear);
+  return 100 - qualityDebt * 0.7 - directionPenalty * 0.3;
+}
+
+function getProductHealthTier(score) {
+  if (score >= 75) return { tier: "upup", emoji: "⬆️", label: "团队对这个游戏有信心", healMult: 1.15, dmgMult: 1.0 };
+  if (score >= 45) return { tier: "normal", emoji: "➡️", label: "大家在正常推进", healMult: 1.0, dmgMult: 1.0 };
+  if (score >= 20) return { tier: "down", emoji: "⬇️", label: "团队开始质疑这个游戏的方向", healMult: 0.85, dmgMult: 1.1 };
+  return { tier: "downdown", emoji: "⚠️", label: "团队私下都知道这个游戏有问题", healMult: 0.7, dmgMult: 1.2 };
+}
+
 const ACTIONS = [
   { id: "push",    emoji: "🔨", label: "冲进度",   ap: 1, desc: "进度+3  士气-4",        always: true,
     available: s => s.teamSlots.length > 0,
-    apply: s => { const base = 3 * getTeamProgressCoeff(s.teamSlots); return { ...s, progress: Math.min(100, s.progress + Math.floor(base)), morale: Math.max(0, s.morale - 4) }; } },
+    apply: s => { const base = 3 * getTeamProgressCoeff(s.teamSlots) * getMoraleEfficiency(s.morale); return { ...s, progress: Math.min(100, s.progress + Math.floor(base)), morale: Math.max(0, s.morale - 4) }; } },
   { id: "care",    emoji: "💬", label: "团队关怀",  ap: 1, desc: "士气+10",              always: true,
     available: () => true,
-    apply: s => ({ ...s, morale: Math.min(100, s.morale + 10) }) },
+    apply: s => {
+      let moraleGain = getTeamComfortEffect(s.teamComfortCount);
+      if (s.industryBackground === "education") moraleGain = Math.round(moraleGain * 1.3);
+      if (s.industryBackground === "finance") moraleGain = Math.round(moraleGain * 0.7);
+      if (s.industryBackground === "blockchain") moraleGain = Math.round(moraleGain * 0.6);
+      return { ...s, morale: Math.min(100, s.morale + moraleGain), teamComfortCount: s.teamComfortCount + 1 };
+    } },
   { id: "comfort", emoji: "🆘", label: "危机安抚",  ap: 2, desc: "士气+25（士气<35时）",   always: false,
     available: s => s.morale < 35,
-    apply: s => ({ ...s, morale: Math.min(100, s.morale + 25) }) },
+    apply: s => ({ ...s, morale: Math.min(100, s.morale + getCrisisComfortEffect(s.crisisComfortCount)), crisisComfortCount: s.crisisComfortCount + 1 }) },
   { id: "finance", emoji: "💸", label: "紧急融资",  ap: 3, desc: "预算+18~32（预算<25时）", always: false,
     available: s => s.budget < 25,
-    apply: s => { const gain = 18 + Math.floor(Math.random() * 15); const hit = Math.random() < 0.4; return { ...s, budget: Math.min(100, s.budget + gain), morale: hit ? Math.max(0, s.morale - 10) : s.morale }; } },
+    apply: s => {
+      let gain = 18 + Math.floor(Math.random() * 15);
+      let missChance = 0.4;
+      if (s.industryBackground === "realestate") gain = Math.round(gain * 1.5);
+      if (s.industryBackground === "blockchain") gain = Math.round(gain * 2.0);
+      if (s.industryBackground === "finance") missChance = 0.2;
+      const hit = Math.random() < missChance;
+      return { ...s, budget: Math.min(100, s.budget + gain), morale: hit ? Math.max(0, s.morale - 10) : s.morale, grit: Math.max(0, s.grit - 2) };
+    } },
   { id: "freeze",  emoji: "🔒", label: "需求冻结",  ap: 3, desc: "进度+8  士气-5（第3-4月，一次性）", always: false,
     available: (s, ctx) => s.week >= 9 && s.week <= 16 && !ctx.freezeDone,
     apply: s => ({ ...s, progress: Math.min(100, s.progress + 8), morale: Math.max(0, s.morale - 5) }) },
   { id: "techcheck", emoji: "🧪", label: "技术健康检查", ap: 2, desc: "质量债-15", always: true,
     available: s => true,
-    apply: s => ({ ...s, qualityDebt: Math.max(0, s.qualityDebt - 15) }) },
+    apply: s => ({ ...s, qualityDebt: Math.max(0, s.qualityDebt - 15), quality: Math.min(10, s.quality + 1) }) },
   { id: "campus", emoji: "🎓", label: "校招", ap: 1, desc: "招新人（月1-2限时）", always: false,
     available: s => s.week <= 8 && s.teamSlots.length < 6,
-    apply: s => {
-      const roles = ['engineer', 'designer', 'qa', 'producer', 'other'];
-      const role = roles[Math.floor(Math.random() * roles.length)];
-      const newMember = {
-        id: `campus_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
-        role,
-        seniority: 'fresh',
-        source: 'campus',
-        contribution: { progressEfficiency: 0.5, moraleBase: -2, budgetCoeff: 0.5 },
-        weeksJoined: 0,
-      };
-      return { ...s, teamSlots: [...s.teamSlots, newMember] };
-    }},
+    apply: s => s },
   { id: "social", emoji: "💼", label: "社招", ap: 2, desc: "招老手  预算-15", always: false,
     available: s => s.budget >= 15 && s.teamSlots.length < 6,
-    apply: s => {
-      const roles = ['engineer', 'designer', 'qa', 'producer', 'other'];
-      const role = roles[Math.floor(Math.random() * roles.length)];
-      const seniority = Math.random() < 0.5 ? 'mid' : 'veteran';
-      const isTroublemaker = Math.random() < 0.3;
-      const newMember = {
-        id: `social_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
-        role,
-        seniority,
-        source: 'social',
-        contribution: seniority === 'veteran'
-          ? { progressEfficiency: 1.2, moraleBase: 0, budgetCoeff: 1.3 }
-          : { progressEfficiency: 0.9, moraleBase: 2, budgetCoeff: 0.9 },
-        hiddenType: isTroublemaker ? 'troublemaker' : null,
-      };
-      return { ...s, budget: Math.max(0, s.budget - 15), teamSlots: [...s.teamSlots, newMember] };
-    }},
+    apply: s => s },
+  { id: "layoff", emoji: "🚪", label: "清洗人员", ap: 2, desc: "移除一名成员  信任-1  士气-10", always: false,
+    available: s => s.teamSlots.length > 0,
+    apply: s => s },
   { id: "cut",     emoji: "✂️", label: "砍功能",    ap: 1, desc: "进度+12  士气-10  预算+5（第5-6月）", always: false,
     available: s => s.week >= 17 && !(s.ipType === "strong" && s.qualityDebt >= 60),
     apply: s => {
@@ -196,7 +311,11 @@ const ACTIONS = [
     apply: s => ({ ...s, verifyUsedThisMonth: true }) },
   { id: "manage_up", emoji: "☕", label: "向上管理", ap: 2, desc: "老板信任度+1，累计3次可缓解KPI", always: true,
     available: s => s.bossTrust < 10,
-    apply: s => ({ ...s, bossTrust: Math.min(10, s.bossTrust + 1), manageUpCount: (s.manageUpCount || 0) + 1 }) },
+    apply: s => {
+      let trustGain = 1;
+      if (s.industryBackground === "mcn") trustGain = 2;
+      return { ...s, bossTrust: Math.min(10, s.bossTrust + trustGain), manageUpCount: (s.manageUpCount || 0) + 1 };
+    } },
 ];
 
 // ---- events ----------------------------------------------------------------
@@ -222,22 +341,22 @@ const CONFIDANT_REVEALS = {
     political: "美术老大和程序老大对方向理解完全不一样，没人敢说"
   },
   2: {
-    emotional: "有人觉得核心玩法不对，但没人敢提",
-    technical: "十分钟顺畅是因为关了一半碰撞检测",
-    political: "总监上次说的方向和这次演示不是一套"
+    emotional: "咱们的核心玩法说是做了差异化……但实际上这个差异化抹掉了核心的乐趣点，想用数值补救，数值发现这个战斗就没有解析解。但没人敢提。",
+    technical: "上次十分钟演示顺畅，一半是因为关了碰撞检测，一半全靠策划的神之剪辑手法……",
+    political: "总监上次说的方向和这次演示不是一套……这演示明天就要见总监，还不知道总监会发什么雷霆怒火"
   },
   3: {
-    emotional: "QA组有两个人已经开始找工作了",
+    emotional: "QA组集体开始看机会了，有两个人拿到了offer打算带着大家一起跑",
     technical: "全流程跑通是靠手动跳过了三个报错",
-    political: "QA的KPI是多提BUG，程序有千行BUG率要求，两边目标对着干，问题单永远对不上"
+    political: "QA的KPI是多提BUG，程序有千行BUG率要求，两边目标永远不可能对上"
   },
   4: {
     emotional: "内容组的活越来越像流水线，几个核心策划开始只求过验收，不管好不好玩",
-    technical: "60%里有大量外包资源，交付了不等于能用，技术整合还没开始",
+    technical: "60%里有大量外包资源，交付了不等于能用；至于技术整合……不知道哪年才能开始",
     political: "策划为了预算能过报低了，但美术对接的供应商可不会给咱们降价"
   },
   5: {
-    emotional: "两个核心成员私下说这个项目上线即死亡，不如趁早找工作",
+    emotional: "两个职能组老大私下说这个项目上线即死亡，不如趁早找工作",
     technical: "发行方空降了一个新领导，提的几个问题和我们这个项目根本毫无关联",
     political: "发行方和老板谈了另一个版本的合作方案，没有通知制作人"
   }
@@ -249,9 +368,9 @@ const ZOMBIE_REVEAL = {
   situation: "你深入了解项目后才发现：",
   dialogue: "所谓「进度40%」，其实包括了：外包的三套废弃美术资产、从没跑通过的技术demo，以及某个策划写的那份永远不会实现的设计文档——对了，那个策划已经离职了，没人记得他叫什么。真实完成度……大概是20%？",
   choices: [
-    { text: "如实上报，重新规划",      effects: { progress: -10, morale: -5,  budget: 0  }, result: "进度打回原形。你很诚实，但上面很失望。" },
-    { text: "先稳住，内部消化",        effects: { progress:  -8, morale: -8,  budget: 0  }, result: "暂时没穿帮，但团队都知道这个秘密。" },
-    { text: "接受现实，从真实起点出发", effects: { progress:  -9, morale:  8,  budget: 0  }, result: "你坦然接受了一切。团队反而有点佩服你的淡定。" },
+    { text: "如实上报，重新规划",      effects: { progress: -30, morale: 0,  budget: 0  }, result: "进度打回原形。你很诚实，但上面很失望。" },
+    { text: "先稳住，内部消化",        effects: { progress:  -18, morale: -12,  budget: 0  }, result: "暂时没穿帮，但团队都知道这个秘密。" },
+    { text: "接受现实，从真实起点出发", effects: { progress:  -40, morale: 10,  budget: 0  }, result: "你坦然接受了一切。团队反而有点佩服你的淡定。" },
   ]
 };
 
@@ -262,11 +381,11 @@ const LUCID_P1 = {
   color: "#e2e8f0",
   tagline: "「我只是说了实话。」",
   situation: "全员会议上，主程打断了老板：",
-  dialogue: "「等一下——我觉得你说的不对。」\n\n会议室安静了三秒钟。老板笑了笑，把话题带过去了。但你注意到，他的眼神变了。\n\n所有人都在看你。",
+  dialogue: "「等一下——我觉得你说的不对。」\n\n会议室安静了三秒钟，老板的眼神变了。\n\n所有人都在看你。",
   choices: [
     { text: "打个圆场，接过话头", effects: { progress: 0, morale: 3, budget: 0 }, result: "气氛缓和了。他看了你一眼，什么都没说。", phase1: "A" },
     { text: "沉默，让他把话说完", effects: { progress: 0, morale: 8, budget: 0 }, result: "他说完了。团队有人在桌子下鼓掌。老板记住了这件事。", phase1: "B" },
-    { text: "「这个我们会后再跟进」", effects: { progress: 0, morale: 0, budget: 0 }, result: "标准管理动作。没有人满意，也没有人受伤。", phase1: "C" },
+    { text: "「这个属于细节问题，我们会后专门讨论」", effects: { progress: 0, morale: 0, budget: 0 }, result: "标准管理动作。没有人满意，也没有人受伤。", phase1: "C" },
   ]
 };
 
@@ -281,33 +400,33 @@ const LUCID_P2 = {
 };
 
 const LUCID_OUTRO = {
-  external: "技术最强的人走了。老板的那个想法，三个月后悄悄从PRD里消失了。",
+  external: "技术最强的人走了。老板的那个想法，不知道哪天悄悄从PRD里消失了。",
   unstable: "他留下来了。但那个会议室里的某样东西，已经变了。",
-  inner: "他换了组。老板的那个想法，三个月后悄悄从PRD里消失了。他还在。",
+  inner: "他换了组。老板的那个想法，后来悄悄从PRD里消失了。他还在。",
 };
 
 const LUCID_P2_CHOICES = {
   A: { text: "写，祝你顺利", effects: { progress: -8, morale: -5, budget: 0 }, result: "他走了。你花了一个小时写了一封认真的推荐信。", outcome: "external" },
   B: { text: "你能不能再考虑一下", effects: { progress: -5, morale: -3, budget: 0 }, result: "他摇摇头。「不是钱的问题。」但他留下来了——心不在了。", outcome: "unstable" },
-  C: { text: "我帮你争取换一个组，不用走", effects: { progress: -2, morale: 0, budget: -8 }, result: "花了一些政治资本，批了。他换了个组，离那个漩涡远了一些。", outcome: "inner" },
+  C: { text: "我想办法帮你换一个老板关注度不高的组，先不用走", effects: { progress: -2, morale: 0, budget: -8 }, result: "花了一些政治资本，批了。他换了个组，离那个漩涡远了一些。", outcome: "inner" },
 };
 
 const HIRE_REVEAL_DATA = {
   god: {
     dialogue: "他第一周就定位了一个困扰大家半个月的bug，顺手还重构了相关模块。主程私下说：「这人是个宝。」",
-    choice: { text: "很好，继续保持", effects: { progress: 5, morale: 8 }, result: "他留下来了。每周进度悄悄多了一点。", outcome: "god" },
+    choice: { text: "很好，继续加油", effects: { progress: 5, morale: 8 }, result: "他留下来了。每周进度悄悄多了一点。", outcome: "god" },
   },
   normal: {
-    dialogue: "表现正常，能按需求交付，不出乱子，也没有惊喜。就是又多了一个需要管理的人。",
+    dialogue: "表现正常，能按需求交付，不出乱子，也没有惊喜。对你来说，只是又多了一个需要管理的人。",
     choice: { text: "好，融入团队吧", effects: { progress: 0, morale: 0 }, result: "他融入了。你几乎记不住他的名字。", outcome: "normal" },
   },
   code: {
     dialogue: "主程发来一条消息：「这个新来的……他的代码我看了，不知道从哪里下手review。现在改他的东西比重写还慢。」",
-    choice: { text: "先观察", effects: { progress: -3, morale: -5 }, result: "他留下来了。每次进度落后的时候，他让进度落得更快。", outcome: "code" },
+    choice: { text: "先观察一下吧……刚招进来就开掉，老板一定会问我们面试怎么面的", effects: { progress: -3, morale: -5 }, result: "他留下来了。你不敢把重要内容交给他，但开发效率还是肉眼可见地变慢了。", outcome: "code" },
   },
   morale: {
     dialogue: "他每天中午都在说上家公司有多好，下午在群里发「感觉这个需求不合理」「这么做有意义吗」。你已经收到了三个关于他的投诉。",
-    choice: { text: "先观察", effects: { progress: 0, morale: -8 }, result: "他留下来了。士气本来就低的时候，他让士气低得更快。", outcome: "morale" },
+    choice: { text: "谈谈心吧", effects: { progress: 0, morale: -8 }, result: "你和他谈了心，但是全程他都心不在焉。你不知道他会不会影响其他人的士气。", outcome: "morale" },
   },
 };
 
@@ -334,10 +453,10 @@ const MANPOWER_EVENT = {
   color: "#f97316",
   tagline: "「招人能解决一切问题！」",
   situation: "老板把你叫进办公室：",
-  dialogue: "「进度有点慢啊。我觉得是人不够，我让HR那边准备了一批简历。\n你来定，招多少都行。\n对了，我有几个推荐的候选人你看一下，都是很不错的人。」\n\n你看了一眼他发来的名单。",
+  dialogue: "「开发速度一定要快。不行就加人。HR那边准备了一批简历。\n你来定，招多少都行。\n对了，我有几个推荐的候选人你看一下，都是很不错的人。」\n\n你看了一眼他发来的名单。",
   choices: [
-    { text: "好，全部招进来", effects: { progress: 0, morale: 5, budget: -15 }, result: "老板很满意。HR开始批量面试。你看着那份推荐名单，把它夹进了文件里。", action: "large" },
-    { text: "人不是越多越好，我只招2个关键岗位", effects: { progress: 0, morale: 0, budget: -8 }, result: "他有点不满意，但接受了。你花了点政治资本，至少把规模压下来了。", action: "small" },
+    { text: "好，全部招进来", effects: { progress: -5, morale: -5, budget: 15 }, result: "老板很满意，给你批了额外的预算作为补充。HR开始批量面试。你看着那份推荐名单，把它夹进了文件里。", action: "large" },
+    { text: "人不是越多越好，我只招2个关键岗位", effects: { progress: 5, morale: 5, budget: 0 }, result: "老板接受了你的精打细算。你花了点政治资本，至少把规模压下来了。", action: "small" },
   ],
 };
 
@@ -350,16 +469,37 @@ const HIRE_REVEAL_EVENT = {
   situation: "新人开始独立作业，这几周你也看清楚了：",
 };
 
+const TRUST_DECAY_EVENTS = {
+  trust_decay_hidden_progress: {
+    id: "trust_decay_hidden_progress", name: "暗流", emoji: "👁️", color: "#64748b",
+    tagline: "「……」",
+    situation: "",
+    dialogue: "上面不知道从哪里听说了一些情况。你在某次会议上注意到他的眼神变了一下。",
+    choices: [
+      { text: "……", effects: { bossTrust: -1 }, result: "你知道有些事情已经悄悄变了。" }
+    ]
+  },
+  trust_decay_promise_broken: {
+    id: "trust_decay_promise_broken", name: "旧账", emoji: "📋", color: "#64748b",
+    tagline: "「他记着呢。」",
+    situation: "",
+    dialogue: "上个月的承诺，他记着呢。",
+    choices: [
+      { text: "……", effects: { bossTrust: -1 }, result: "你没能兑现承诺。" }
+    ]
+  },
+};
+
 const EVENTS = [
   {
     id: "dreamer", name: "幻想家", emoji: "✨", color: "#c084fc",
     tagline: "「我想实现的时候一定会进展顺利」",
     situation: "幻想家找到你，眼神发亮：",
-    dialogue: "制作人！我昨晚想到了一个超酷的功能——城市建造系统+NPC情绪引擎+实时动态天气！实现起来应该不难吧？",
+    dialogue: "制作人！我昨晚想到了一个超酷的功能——城市建造系统+NPC情绪引擎+实时动态天气！直接对标最近很火的那个猛男捡树枝！我问了朋友，实现起来应该不难的！",
     choices: [
-      { text: "好主意！加进去！",    effects: { progress: -4, morale:  12, budget: -12 }, result: "团队兴奋了。范围扩了，进度变慢，钱也少了。" },
-      { text: "先写进愿望清单",      effects: { progress:  0, morale:  -3, budget:   5 }, result: "幻想家有点失落。项目保住了，预算还省了点。" },
-      { text: "做完核心玩法再说",    effects: { progress:  3, morale: -12, budget:   0 }, result: "幻想家郁闷地走了。团队寒心。" },
+      { text: "好主意！加进去！",    effects: { progress: -2, morale:  -12, budget: 12, qualityDebt: 8 }, result: "范围扩了，进度变慢，但是预算变高了。团队觉得你是一个耳根子很软的制作人。" },
+      { text: "先写进愿望清单",      effects: { progress:  6, morale:  -2, budget:   6, bossTrust: -1 }, result: "一切如常，幻想家有点失落，私下里说你很会画饼。他离开时没有说再见。" },
+      { text: "做完核心玩法再说",    effects: { progress:  5, morale: 5, budget:   0 }, result: "幻想家郁闷地走了。但是团队很欣赏你的坚定。" },
     ]
   },
   {
@@ -368,8 +508,8 @@ const EVENTS = [
     situation: "灵机一动冲进办公室，手机屏幕冲你晃：",
     dialogue: "我最近在玩《新鬼》，好可爱！我们也做一个向导角色！还有《白寓言》的变身机制！都加上吧！",
     choices: [
-      { text: "好！美术程序都动起来！",  effects: { progress: -8, morale: -10, budget: -18 }, result: "美术组和程序组同时崩溃。工期直接炸了。" },
-      { text: "做个可行性评估",          effects: { progress: -2, morale:   3, budget:  -8 }, result: "结论：都不可行。浪费了点时间和钱，但总比全做强。" },
+      { text: "好！美术程序都动起来！",  effects: { progress: 0, morale: -10, budget: 10 }, result: "美术组和程序组加班加点，团队疲惫不堪。但你们折腾出来的效果为你们换到了一笔预算。" },
+      { text: "做个可行性评估",          effects: { progress: 0, morale:   0, budget:  -5 }, result: "结论：都不可行。浪费了点时间和钱，但总比全做强。" },
       { text: "我们有自己的方向，专注",  effects: { progress:  3, morale: -10, budget:   0 }, result: "他有点受伤，但项目没偏轨。" },
     ]
   },
@@ -379,20 +519,20 @@ const EVENTS = [
     situation: "空中楼阁把你叫进小会议室，压低声音：",
     dialogue: "下个月没有内部PV，就拿不到下季度预算！我不管你验证没验证完，先做一版漂亮的Demo出来！",
     choices: [
-      { text: "好，全员停下来做Demo",    effects: { progress: -8, morale:  -5, budget:  25 }, result: "预算到手了。核心问题被埋进去，以后会爆的。" },
+      { text: "好，全员停下来做Demo",    effects: { progress: -8, morale:  -5, budget:  25, qualityDebt: 20 }, result: "预算到手了。核心问题被埋进去，以后会爆的。" },
       { text: "据理力争拒绝",            effects: { progress:  2, morale:   5, budget: -15 }, result: "预算缩水了，但进度和士气都保住了。" },
       { text: "把现有进度包装成Demo",    effects: { progress: -2, morale:   5, budget:  10 }, result: "小聪明发挥了作用，上面暂时满意了。" },
     ]
   },
   {
-    id: "paratrooper", name: "伞兵制作人", emoji: "🪂", color: "#4ade80",
+    id: "paratrooper", name: "伞兵", emoji: "🪂", color: "#4ade80",
     tagline: "「我不会乱动的」（但一定会的）",
-    situation: "新制作人在全员会议上笑着说：",
-    dialogue: "大家好！我是新来的制作人，我觉得你们做得挺好的，会尽量不动大家的东西。对了，我只是有一些小小的方向性调整……",
+    situation: "空降的这位执行制作人听说是老板花了大价钱挖来的，他在全员会议上笑着说：",
+    dialogue: "大家好！我是新来的执行制作人，会辅助制作人把这个内容做好。我觉得你们做得挺好的，会尽量不动大家的东西。对了，我只是有一些小小的方向性调整……",
     choices: [
-      { text: "当然！洗耳恭听！",          effects: { progress: -8, morale:   8, budget:  -5 }, result: "「小小调整」= 三个月白干，方向大变。士气短暂好转了。" },
-      { text: "先完成当前里程碑再谈",       effects: { progress:  3, morale:  -5, budget:   0 }, result: "争取到了缓冲期。但他记住这事了。" },
-      { text: "邀请他深入了解实际现状",     effects: { progress: -3, morale:  12, budget:  -3 }, result: "他理解了现状，后来的调整合理了很多。团队觉得你会办事。" },
+      { text: "当然！洗耳恭听！",          effects: { progress: -8, morale:   -8, budget:  10 }, result: "「小小调整」= 三个月白干，方向大变。士气大受挫败，但上面很满意新的效果，批了更多预算。" },
+      { text: "先完成当前里程碑再谈",       effects: { progress:  10, morale:  0, budget:   0 }, result: "争取到了缓冲期。但他记住这事了。从此看你的眼神都多了三分敌意。" },
+      { text: "邀请他深入了解实际现状",     effects: { progress: 5, morale:  5, budget:  0 }, result: "他理解了现状，后来的调整合理了很多。团队觉得你会办事。" },
     ]
   },
   {
@@ -401,9 +541,9 @@ const EVENTS = [
     situation: "主程发来一份十页技术文档：",
     dialogue: "制作人，我研究了一下现有架构，技术债非常严重。如果不在这个阶段重构，后期每个功能的开发成本会翻倍。大概需要……六周。",
     choices: [
-      { text: "重构！代码质量第一！",      effects: { progress: -10, morale:  15, budget: -10 }, result: "六周后代码确实干净了。进度完全没了。程序组很爱你。" },
+      { text: "重构！代码质量第一！",      effects: { progress: -10, morale:  15, budget: -10 }, result: "六周后代码看起来似乎是干净了，但你看见程序组有几个人看你的目光有点躲闪。" },
       { text: "局部重构最关键的部分",      effects: { progress:  -3, morale:   8, budget:  -5 }, result: "折中方案，程序组勉强接受。进度基本没动。" },
-      { text: "先上线，后续版本再还债",    effects: { progress:   4, morale: -15, budget:   0 }, result: "程序组心碎，但项目在往前走。" },
+      { text: "先上线，后续版本再还债",    effects: { progress:   4, morale: -15, budget:   0, qualityDebt: 10 }, result: "程序组心碎，但项目在往前走。" },
     ]
   },
   {
@@ -469,7 +609,7 @@ const EVENTS = [
     choices: [
       { text: "重写！不在屎山上建高楼！",    effects: { progress: -9, morale:  10, budget: -10 }, result: "重写花了六周。这一个功能的代码终于干净了。" },
       { text: "小步带防护地改，写测试覆盖",  effects: { progress: -3, morale:   3, budget:  -5 }, result: "慢是慢了，但改完了，没崩。稳健但不便宜。" },
-      { text: "这个功能砍掉，规避问题",      effects: { progress:  3, morale: -10, budget:   5 }, result: "功能砍了，进度和预算都好看了。屎山留给了下一任制作人。" },
+      { text: "这个功能砍掉，规避问题",      effects: { progress:  3, morale: -10, budget:   5, qualityDebt: 25 }, result: "功能砍了，进度和预算都好看了。屎山留给了下一任制作人。" },
     ]
   },
   {
@@ -512,8 +652,8 @@ const EVENTS = [
     situation: "你在复盘上个月的里程碑，翻到了一些细节：",
     dialogue: "那两个「完整关卡」——你亲自去跑测了一下，发现一个是美术场景，没有碰撞体，走进去会穿模；另一个通关逻辑还没写，只能走到中间。\n你又打开了当时他们给你的演示视频，确实能跑，但只在那一张专用测试地图上。\n你打开进度表，盯着那几个数字看了很久。",
     choices: [
-{ text: "召集团队重新对齐真实进度", effects: { progress: -8, morale: -5, budget: 0 }, result: "会议上你当众指出了问题。有人沉默，有人低头。气氛很糟，但你终于知道自己在哪里。" },
-      { text: "私下找主程重新评估",        effects: { progress: -5, morale:  0, budget: -5 }, result: "花了两天重新盘了一遍。数字调小了。只有你们两个人知道。" },
+      { text: "召集团队重新对齐真实进度", effects: { progress: -8, morale: -5, budget: 0, bossTrust: 1 }, result: "会议上你当众指出了问题。有人沉默，有人低头。气氛很糟，但你终于知道自己在哪里。" },
+      { text: "私下找主程重新评估",        effects: { progress: -5, morale:  0, budget: -5, qualityDebt: 15 }, result: "花了两天重新盘了一遍。数字调小了。只有你们两个人知道。" },
       { text: "默默调整内心预期",          effects: { progress: -3, morale:  3, budget:  0 }, result: "你一个人坐着，把进度表里几个数字改小了。没有人知道。你也不确定这样做对不对。" },
     ]
   },
@@ -593,11 +733,46 @@ const EVENTS = [
     dialogue: "「项目进度看起来……有点慢啊。我们下个季度的KPI目标是这个数，你觉得能完成吗？」那个数字需要你接下来每周产出翻倍。",
     choices: [
       { text: "拍胸脯保证，完不成自罚",          effects: { progress:  0, morale:  -5, budget:   0 }, result: "领导满意地点头。团队听说了，集体沉默。压力全在你身上了。" },
-      { text: "如实分析风险，提出可达目标",        effects: { progress:  2, morale:   5, budget:   0 }, result: "领导皱了皱眉，但接受了合理目标。团队觉得你靠谱。" },
+      { text: "如实分析风险，提出可达目标",        effects: { progress:  2, morale:   5, budget:   0, bossTrust: 1 }, result: "领导皱了皱眉，但接受了合理目标。团队觉得你靠谱。" },
       { text: "用漂亮的PPT转移注意力",            effects: { progress: -2, morale:   3, budget:  -5 }, result: "这周做PPT了，没做正事。但领导暂时满意了。" },
     ]
   },
   MANPOWER_EVENT,
+];
+
+const DIRECTION_SPECIFIC_EVENTS = [
+  {
+    id: "dir_openworld_scope",
+    direction: "OPENWORLD",
+    minWeek: 9,
+    name: "范围蔓延",
+    emoji: "🗺️",
+    color: "#38bdf8",
+    tagline: "「12个区域，还是7个？」",
+    situation: "策划提交了一份区域清单：",
+    dialogue: "清单上有12个区域，按优先级排列。前5个是核心区域，已经开工。后7个是如果来得及的区域——其中3个有独特的玩法设计，2个是风景打卡点，还有2个是玩家会期待的标准配置。程序组说：按现有速度，最多再做3个。",
+    choices: [
+      { text: "全部做，加人加班。", effects: { progress: -5, budget: -15, qualityDebt: 15 }, hidden: { quality: -1 }, result: "三个月后，12个区域都有了。每个区域的深度，大约是你最初设计的三分之一。" },
+      { text: "砍到7个，保证每个区域有内容。", effects: { progress: 3, morale: -8, qualityDebt: 3 }, hidden: { quality: 1 }, result: "7个区域，每个都至少有2小时内容。策划在群里发了一张图：原本的12区地图，5个被划掉了。" },
+      { text: "核心5个做深，后7个做浅——开放世界本来就是看风景。", effects: { progress: 5, morale: 3, qualityDebt: 8 }, hidden: { judgment: -1 }, result: "5个区域有深度，7个区域是空壳。上线后，有玩家发帖：这个世界很大，但是空的。" },
+    ]
+  },
+  {
+    id: "dir_br_rival",
+    direction: "BATTLE_ROYALE",
+    minWeek: 6,
+    name: "对手抢先",
+    emoji: "🪂",
+    color: "#f97316",
+    tagline: "「他们比我们早两周。」",
+    situation: "运营组发来一条消息：",
+    dialogue: "隔壁那家吃鸡今天上线了。我们看了一下，品质一般，但他们赶在前面了。用户评论第一条：又是吃鸡，又一个换皮。你看了看自己的进度表。如果加速，两周内也能上。但那个版本你还记得QA上周的报告。",
+    choices: [
+      { text: "加速赶工，两周内上线。", effects: { progress: 8, morale: -10, qualityDebt: 12 }, hidden: { grit: -1 }, result: "你赶上了。上线首日DAU还行，但第二天留存你让运营不要把数据发到群里。" },
+      { text: "按节奏做，品质第一。", effects: { morale: 5, bossTrust: -1 }, hidden: { grit: 1 }, result: "你多花了三周。上线时，市场上已经有四款吃鸡了。但你的评分是它们中最高的。没有人发朋友圈庆祝。" },
+      { text: "调整方向，避开正面竞争——我们做差异化玩法。", effects: { progress: -5, morale: 3, budget: -8 }, hidden: { judgment: -1 }, result: "你花了两天开会，定了一个新的差异化方向。程序组说可以做，但之前的内容要砍掉40%。你在会议室里坐了很久。" },
+    ]
+  },
 ];
 
 const CORP_EVENTS = ["corp_kpi", "corp_approval", "kpi_review", "market_trend"];
@@ -675,7 +850,7 @@ const MILESTONE_EVENTS = [
   },
 ];
 
-function MonthSummaryCard({ data, bossTrust, onNext }) {
+function MonthSummaryCard({ data, bossTrust, people, peopleHintShown, onNext }) {
   const { month, delta, progress, weeksLeft } = data;
   const flavor = MONTH_FLAVORS[month - 1] || "";
   return (
@@ -689,6 +864,9 @@ function MonthSummaryCard({ data, bossTrust, onNext }) {
           <div style={{ color: "#acacac" }}>剩余 <span style={{ color: weeksLeft < 8 ? "#f87171" : "#888" }}>{weeksLeft}</span> 周</div>
           {bossTrust <= 2 && bossTrust > 0 && (
             <div style={{ color: "#f87171", fontStyle: "italic", marginTop: 4 }}>他最近在问其他人你项目的情况。</div>
+          )}
+          {people < 3 && !peopleHintShown && (
+            <div style={{ color: "#9ca3af", fontStyle: "italic", marginTop: 4 }}>走廊里遇到的人越来越少了。你不太确定，是他们不在了，还是他们不想跟你说话了。</div>
           )}
         </div>
         <div style={{ fontSize: 14, color: "#3a3a4a", fontStyle: "italic", borderTop: "1px solid #1a1a2e", paddingTop: 12 }}>
@@ -706,6 +884,66 @@ function MonthSummaryCard({ data, bossTrust, onNext }) {
 }
 
 // ---- helpers ---------------------------------------------------------------
+
+function getIndustryBackgroundChoices(eventId, industryBackground) {
+  const map = {
+    realestate: {
+      bet_deal: {
+        text: "重新谈条款",
+        tag: "背景",
+        effects: { budget: 5, bossTrust: -1 },
+        result: "你在另一个行业见过更苛刻的合同。你拿出笔，在对方的条款上划了几道。他沉默了一会儿，点了头。你不确定他是真的接受了，还是在等。"
+      },
+      stock_trap: {
+        text: "我们谈的不是股票，是退出机制",
+        tag: "背景",
+        effects: { budget: 8, qualityDebt: 5 },
+        result: "你把对话从激励转移到了结构上。他没想到你懂这个。条款重签了——但你知道，你用项目质量换了谈判空间。"
+      },
+      capital_wave: {
+        text: "我们来谈一个对双方都合理的结构",
+        tag: "背景",
+        effects: { budget: 12, bossTrust: 1 },
+        result: "你把融资谈成了一次甲方合作，而不是投资人介入。他很满意——你用的是他的语言。"
+      },
+    },
+    film: {
+      dreamer: {
+        text: "先做一个概念验证，最低成本",
+        tag: "背景",
+        effects: { morale: 5, budget: -5, qualityDebt: -3 },
+        result: "你在影视圈学会了一件事：再大的想法，先拍个三分钟的概念片。他眼睛亮了。你用最小的投入，给了他一个出口。"
+      },
+      castle: {
+        text: "我们做一个垂直切片，证明这个方向能跑",
+        tag: "背景",
+        effects: { progress: -5, morale: 8, qualityDebt: -5 },
+        result: "这是影视圈的老方法：先做最难的那一段，证明整体可行。团队打起精神来了——他们喜欢有人知道自己在干什么。"
+      },
+    },
+    blockchain: {
+      bet_deal: {
+        text: "重新定义这个项目的价值叙事",
+        tag: "背景",
+        effects: { budget: 12, bossTrust: 1, qualityDebt: 8 },
+        result: "你讲了一个更大的故事——用户规模、生态位、长线价值。他听进去了。钱批下来了，预期也被你推高了。你自己也知道，这个故事要靠后面的数据撑。"
+      },
+      stock_trap: {
+        text: "把这个包装成一次战略布局",
+        tag: "背景",
+        effects: { budget: 10, morale: -5 },
+        result: "你给这个局面加了一层框架，让它听起来像主动选择而不是被动接受。团队不太信，但老板满意了。"
+      },
+      capital_wave: {
+        text: "给他讲一个Web3没讲完的故事",
+        tag: "背景",
+        effects: { budget: 15, bossTrust: 1, qualityDebt: 10 },
+        result: "你太熟悉这套话术了。他的眼睛里有你认识的那种光。钱来了，期望也来了。你在心里算了一下，后面的数据要多好看才能撑住这个故事。"
+      },
+    },
+  };
+  return map[industryBackground]?.[eventId];
+}
 
 function colorDesc(desc) {
   return desc.split(/([\+\-]\d+)/).map((p, i) =>
@@ -791,19 +1029,11 @@ function WorkModeSelector({ workMode, setWorkMode, overtimeType, setOvertimeType
   );
 }
 
-function ActionMenu({ state, workMode, apSpent, setApSpent, setState, freezeDone, setFreezeDone }) {
+function ActionMenu({ state, workMode, apSpent, freezeDone, onAction }) {
   const apTotal = WORK_MODES[workMode].ap + (state.apBonusPerWeek || 0);
   const apLeft = Math.max(0, apTotal - apSpent);
   const isMonthEnd = state.week % 4 === 0;
   const ctx = { freezeDone, isMonthEnd };
-
-  const takeAction = (action) => {
-    if (apLeft < action.ap) return;
-    if (!action.available(state, ctx)) return;
-    setState(prev => action.apply(prev));
-    setApSpent(p => p + action.ap);
-    if (action.id === "freeze") setFreezeDone(true);
-  };
 
   const available = ACTIONS.filter(a => a.available(state, ctx));
   if (available.length === 0) return null;
@@ -815,7 +1045,7 @@ function ActionMenu({ state, workMode, apSpent, setApSpent, setState, freezeDone
         {available.map(action => {
           const canAfford = apLeft >= action.ap;
           return (
-            <button key={action.id} onClick={() => takeAction(action)} disabled={!canAfford} style={{ padding: "7px 10px", fontSize: 13, background: canAfford ? "#0c0c18" : "#080808", border: `1px solid ${canAfford ? "#2a2a3a" : "#161616"}`, color: canAfford ? "#999" : "#acacac", borderRadius: 6, cursor: canAfford ? "pointer" : "default", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}
+            <button key={action.id} onClick={() => onAction(action)} disabled={!canAfford} style={{ padding: "7px 10px", fontSize: 13, background: canAfford ? "#0c0c18" : "#080808", border: `1px solid ${canAfford ? "#2a2a3a" : "#161616"}`, color: canAfford ? "#999" : "#acacac", borderRadius: 6, cursor: canAfford ? "pointer" : "default", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}
               onMouseEnter={e => canAfford && (e.currentTarget.style.borderColor = "#4a4a7a")}
               onMouseLeave={e => canAfford && (e.currentTarget.style.borderColor = "#2a2a3a")}>
               <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
@@ -860,16 +1090,24 @@ function IntroScreen({ onNext }) {
   );
 }
 
+function getActiveCardGroups(pickedCards) {
+  return CARD_GROUPS.filter(g => !g.condition || g.condition(pickedCards));
+}
+
 function CardScreen({ step, pickedCards, onPick, onNext }) {
-  const group = CARD_GROUPS[step];
-  const picked = pickedCards[step];
+  const activeGroups = getActiveCardGroups(pickedCards);
+  const group = activeGroups[step];
+  const groupIdx = CARD_GROUPS.indexOf(group);
+  const picked = pickedCards[groupIdx];
 
   return (
     <div style={{ minHeight: "100vh", background: "#060610", color: "#e0e0e8", fontFamily: "'Segoe UI', system-ui, sans-serif", maxWidth: 420, margin: "0 auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: 24 }}>
       <div style={{ fontSize: 12, color: "#acacac", fontFamily: "monospace", marginBottom: 12 }}>
-        {step + 1} / {CARD_GROUPS.length}
+        {step + 1} / {activeGroups.length}
       </div>
-      <div style={{ fontSize: 17, fontWeight: 700, color: "#999", marginBottom: 20 }}>{group.title}</div>
+      <div style={{ fontSize: 17, fontWeight: 700, color: "#999", marginBottom: 4 }}>{group.title}</div>
+      {group.subtitle && <div style={{ fontSize: 12, color: "#6a6a7a", marginBottom: 20, fontStyle: "italic" }}>{group.subtitle}</div>}
+      {!group.subtitle && <div style={{ marginBottom: 20 }} />}
       <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
         {group.cards.map(card => {
           const isSelected = picked?.id === card.id;
@@ -893,7 +1131,7 @@ function CardScreen({ step, pickedCards, onPick, onNext }) {
         <button onClick={onNext} style={{ background: "#0c0c18", border: "1px solid #2a2a3a", color: "#888", borderRadius: 8, padding: "13px 14px", fontSize: 15, cursor: "pointer", width: "100%", transition: "all 0.15s" }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = "#4a4a7a"; e.currentTarget.style.color = "#ccc"; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = "#2a2a3a"; e.currentTarget.style.color = "#888"; }}>
-          {step < CARD_GROUPS.length - 1 ? "下一张 →" : "开始制作！🚀"}
+          {step < activeGroups.length - 1 ? "下一张 →" : "开始制作！🚀"}
         </button>
       )}
       <style>{`@keyframes floatIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }`}</style>
@@ -905,35 +1143,447 @@ function CardScreen({ step, pickedCards, onPick, onNext }) {
 
 const DIRECTIONS = {
   CASUAL: { id: "CASUAL", label: "休闲轻度", pitch: "低门槛，高频付费，玩家上手快。" },
-  CARD: { id: "CARD", label: "卡牌抽卡", pitch: "抽卡钩子，玩家留存稳定。" },
+  CARD: { id: "CARD", label: "传统卡牌", pitch: "抽卡钩子，玩家留存稳定。" },
   SLG: { id: "SLG", label: "策略长线", pitch: "长线留存，但慢热。" },
   ARPG: { id: "ARPG", label: "动作RPG", pitch: "差异化竞争，走精品路线。" },
-  MOBA: { id: "MOBA", label: "竞技对战", pitch: "三分天下，你来做第四个。" },
+  MOBA: { id: "MOBA", label: "竞技MOBA", pitch: "三分天下，你来做第四个。" },
   IDLE: { id: "IDLE", label: "放置挂机", pitch: "不烧钱不烧脑，低成本稳健。" },
   OPENWORLD: { id: "OPENWORLD", label: "开放世界", pitch: "标杆已立，跟不上就出局。" },
   ROMANCE: { id: "ROMANCE", label: "女性向养成", pitch: "新蓝海，先入场先吃肉。" },
   PARTY: { id: "PARTY", label: "派对社交", pitch: "UGC是流量密码，已经有人证明了。" },
   AI_NATIVE: { id: "AI_NATIVE", label: "AI原生", pitch: "赌对了，未来三年吃红利。" },
+  ANIME: { id: "ANIME", label: "二次元游戏", pitch: "美术+IP+故事驱动，用户粘性极高。" },
+  BATTLE_ROYALE: { id: "BATTLE_ROYALE", label: "战术竞技", pitch: "吃鸡风口，用户量爆炸增长。" },
+  AUTO_CHESS: { id: "AUTO_CHESS", label: "自走棋", pitch: "窗口期品类，做出来就是钱。" },
+  CHESS_CARD: { id: "CHESS_CARD", label: "棋牌", pitch: "斗地主/麻将，用户基数大。" },
+  IP_PORT: { id: "IP_PORT", label: "页游转手", pitch: "端/页游IP移植手游，捷径。" },
+  SIM: { id: "SIM", label: "模拟经营", pitch: "江南百景图风，长线付费。" },
+  METAVERSE: { id: "METAVERSE", label: "元宇宙", pitch: "概念风口，先入场占坑。" },
+  GLOBAL: { id: "GLOBAL", label: "出海全球化", pitch: "面向海外市场，增量空间。" },
+  MINI_GAME: { id: "MINI_GAME", label: "小游戏买量", pitch: "微信生态，低成本获客。" },
+  LEGACY: { id: "LEGACY", label: "叔系老游戏", pitch: "面向30+男性，慢节奏情怀。" },
+  PC_MMO: { id: "PC_MMO", label: "重度端游移植", pitch: "把PC MMO搬上手机，吃老用户。" },
 };
 
 const YEAR_DATA = {
-  2010: { hot: ["CASUAL"], mocked: "ARPG", narrateA: "2010年，页游刚起来。", narrateB: "大家都在抄成功产品。" },
-  2012: { hot: ["CARD", "ARPG"], mocked: null, narrateA: "2012年，卡牌开始爆发。", narrateB: "动作RPG也有人在做。" },
-  2013: { hot: ["CARD"], mocked: "SLG", narrateA: "隔壁组策划下班时说了句话：\"我们月活破百万了，就靠加了个SSR保底。\"你点点头，好像听懂了。", narrateB: "产品会上有人提了个词：\"抽卡钩子。\"没有人问这是什么。大家都在点头。" },
-  2014: { hot: ["CARD", "SLG"], mocked: "MOBA", narrateA: "2014年，SLG开始起来了。", narrateB: "MOBA还在观望，没人敢碰。" },
-  2015: { hot: ["ARPG"], mocked: "CASUAL", narrateA: "2015年，ARPG成为主流。", narrateB: "休闲游戏被认为赚不到大钱。" },
-  2016: { hot: ["ROMANCE", "SLG"], mocked: null, narrateA: "2016年，女性向开始被关注。", narrateB: "SLG的长线价值被认可。" },
-  2017: { hot: ["MOBA", "ROMANCE"], mocked: "CARD", narrateA: "公司楼道里有人在玩一个游戏，跳伞，捡枪。他在电话里说：\"大吉大利，今晚吃鸡。\"你不知道那是什么意思，但你记住了这句话。", narrateB: "产品部发来一份报告：女性用户付费意愿同比提升240%。末尾附了一句：\"女性向蓝海，现在入场还不晚。\"没人知道这个240%是怎么算出来的。" },
-  2018: { hot: ["ROMANCE", "IDLE"], mocked: null, narrateA: "2018年，放置类开始流行。", narrateB: "女性向市场持续增长。" },
-  2019: { hot: ["IDLE", "OPENWORLD"], mocked: "ARPG", narrateA: "2019年，开放世界概念开始热。", narrateB: "放置挂机被验证为可行模式。" },
-  2020: { hot: ["IDLE", "CASUAL"], mocked: null, narrateA: "2020年，疫情带来了用户增长。", narrateB: "休闲+放置成为组合拳。" },
-  2021: { hot: ["OPENWORLD"], mocked: "CARD", narrateA: "原神的数据还在刷屏。一个从业十五年的制作人在朋友圈发了一条：\"我们是不是都理解错游戏了。\"点赞218，评论关闭。", narrateB: "老板发来一张截图，是某游戏的首周流水数字，旁边附了一个问号。你不知道怎么回复，先点了个已读。" },
-  2022: { hot: ["SLG", "OPENWORLD"], mocked: "CARD", narrateA: "2022年，SLG和开放世界并存。", narrateB: "卡牌被认为是过时品类。" },
-  2023: { hot: ["PARTY", "AI_NATIVE"], mocked: "OPENWORLD", narrateA: "技术群里有人发了一张AI生成的原画，跟美术组画的差不多。没有人说话。两分钟后，美术主管发了一个微笑表情。", narrateB: "CEO在全员大会上说了一个词：AI原生。他重复了三次。会后有人悄悄问你：\"什么是AI原生？\"你说你也不知道。" },
-  2024: { hot: ["OPENWORLD", "MOBA"], mocked: "CASUAL", narrateA: "2024年，开放世界成为标配。", narrateB: "MOBA竞技回温。" },
-  2025: { hot: ["AI_NATIVE", "OPENWORLD"], mocked: null, narrateA: "2025年，AI全面介入开发。", narrateB: "没有AI工具的团队被认为落伍。" },
-  2026: { hot: ["AI_NATIVE"], mocked: null, narrateA: "2026年，AI原生成为主流。", narrateB: "不会用AI的制作人很难找工作。" },
+  2012: {
+    hot: ["IP_PORT", "CHESS_CARD"],
+    mocked: "PC_MMO",
+    catchphrase: "页转手是捷径，月入千万不是梦",
+    representatives: ["忘仙手游", "世界OL"],
+    mockedFlavor: "「你还在做老掉牙的端游？手机用户哪有耐心肝这个。」",
+    specialEvents: ["chess_card_jqk"],
+    narrateA: "2012年，页游转手开始成为主流。",
+    narrateB: "棋牌类游戏用户基数大，变现快。",
+  },
+  2013: {
+    hot: ["CARD", "CASUAL"],
+    mocked: "SLG",
+    catchphrase: "2013是卡牌年，无卡牌不手游",
+    representatives: ["我叫MT", "大掌门"],
+    mockedFlavor: "「SLG？太复杂了，手机用户不爱动脑子。」",
+    narrateA: "隔壁组策划下班时说了句话:\"我们月活破百万了，就靠加了个SSR保底。\"你点点头，好像听懂了。",
+    narrateB: "产品会上有人提了个词:\"抽卡钩子。\"没有人问这是什么。大家都在点头。",
+  },
+  2014: {
+    hot: ["ANIME", "SLG", "ARPG"],
+    mocked: "MOBA",
+    catchphrase: "年轻人做二次元，中年人做COK出海赚美金",
+    representatives: ["LoveLive学园偶像祭", "列王的纷争"],
+    mockedFlavor: "「手机玩MOBA是反人类，操作根本做不了。」",
+    narrateA: "这一年，二次元和SLG开始分庭抗礼。",
+    narrateB: "MOBA还在观望，没人敢碰移动端这块蛋糕。",
+  },
+  2015: {
+    hot: ["MOBA", "ARPG"],
+    mocked: "CARD",
+    catchphrase: "MOBA是下一个风口，2015是重度化元年",
+    representatives: ["王者荣耀（公测）", "梦幻西游手游"],
+    mockedFlavor: "「卡牌已经烂大街了，没前途。」",
+    narrateA: "2015年，MOBA成为手游新宠。",
+    narrateB: "ARPG端转手验证了重度化之路的可行性。",
+  },
+  2016: {
+    hot: ["ANIME", "SLG", "MOBA"],
+    mocked: "CARD",
+    catchphrase: "美术即正义，非酋欧皇出圈",
+    representatives: ["阴阳师", "率土之滨"],
+    mockedFlavor: "「你的卡牌和阴阳师比……算了，不比了。没美术没剧情，必死。」",
+    narrateA: "阴阳师刷屏，二次元手游证明了自己的商业价值。",
+    narrateB: "率土之滨让SLG从圈层走向大众。",
+  },
+  2017: {
+    hot: ["ROMANCE", "SLG", "BATTLE_ROYALE"],
+    mocked: "CARD",
+    catchphrase: "女性向是蓝海，SLG买量永动机",
+    representatives: ["恋与制作人", "乱世王者"],
+    mockedFlavor: "「二次元卡牌退烧了，你现在还做这个？」",
+    hotWeights: [1.0, 1.0, 0.5],
+    narrateA: "公司楼道里有人在玩一个游戏，跳伞，捡枪。他在电话里说:\"大吉大利，今晚吃鸡。\"",
+    narrateB: "恋与制作人证明了女性向市场的巨大潜力。",
+  },
+  2018: {
+    hot: ["BATTLE_ROYALE", "ANIME", "IDLE"],
+    mocked: "ARPG",
+    catchphrase: "大吉大利今晚吃鸡，买量为王ROI至上",
+    representatives: ["荒野行动", "刺激战场"],
+    mockedFlavor: "「MMO已死，传统ARPG没人肝了。」",
+    narrateA: "吃鸡手游席卷市场，战术竞技成为新赛道。",
+    narrateB: "放置类游戏悄悄崛起，低成本高回报。",
+  },
+  2019: {
+    hot: ["AUTO_CHESS", "IDLE", "CARD"],
+    mocked: "OPENWORLD",
+    catchphrase: "万物皆可自走棋，窗口期只有三个月",
+    representatives: ["多多自走棋", "FGO（二次元基本盘）"],
+    mockedFlavor: "「开放世界？成本高，手机带不动，赚不回来。」",
+    specialEvents: ["auto_chess_window"],
+    narrateA: "自走棋玩法爆红，三个月内二十多款产品上线。",
+    narrateB: "开放世界概念开始有人讨论，但大家都觉得成本太高。",
+  },
+  2020: {
+    hot: ["OPENWORLD", "IDLE", "SIM"],
+    mocked: "CASUAL",
+    catchphrase: "原神定义3A手游，开放世界是入场券",
+    representatives: ["原神（公测）", "江南百景图"],
+    mockedFlavor: "「纯换皮买量？用户审美疲劳了，买量见顶了。」",
+    specialEvents: ["capital_wave"],
+    narrateA: "原神公测，重新定义了手游的品质天花板。",
+    narrateB: "疫情带来用户增长，模拟经营类异军突起。",
+  },
+  2021: {
+    hot: ["ARPG", "OPENWORLD", "METAVERSE"],
+    mocked: "CARD",
+    catchphrase: "武侠吃鸡破圈，端手游联动是未来",
+    representatives: ["永劫无间（PC端游）", "妄想山海"],
+    mockedFlavor: "「没内容留不住人，老套卡牌没未来。」",
+    narrateA: "元宇宙概念爆红，游戏圈人人都在谈。",
+    narrateB: "永劫无间证明了买断制端游在国内仍有市场。",
+  },
+  2022: {
+    hot: ["SLG", "OPENWORLD", "GLOBAL"],
+    mocked: "CARD",
+    catchphrase: "动物SLG是蓝海，出海是唯一增量",
+    representatives: ["小小蚁国", "原神（持续）"],
+    mockedFlavor: "「现在三端互通都是大势所趋了，你还只做国内单端？」",
+    narrateA: "出海成为热词，国产游戏开始走向全球。",
+    narrateB: "SLG新品类不断涌现，动物题材成为新宠。",
+  },
+  2023: {
+    hot: ["PARTY", "AI_NATIVE", "OPENWORLD"],
+    mocked: "SLG",
+    catchphrase: "AI重构生产，UGC是第二曲线",
+    representatives: ["逆水寒手游", "蛋仔派对"],
+    mockedFlavor: "「UGC什么一看就是骗局，踏踏实实做个SLG……」对方笑了。",
+    narrateA: "技术群里有人发了一张AI生成的原画，跟美术组画的差不多。",
+    narrateB: "蛋仔派对让派对游戏和UGC成为新热点。",
+  },
+  2024: {
+    hot: ["ANIME", "SLG", "MINI_GAME"],
+    mocked: "CASUAL",
+    catchphrase: "二游卷内容，SLG卷买量，小游戏卷ROI",
+    representatives: ["绝区零", "三国：谋定天下", "永劫无间手游（陪跑）"],
+    mockedFlavor: "「三端互通光是UI就搞不定，老实点做休闲手游，成本低。」对方不是嘲讽，是真心建议。",
+    narrateA: "小游戏生态成熟，微信成为新的流量洼地。",
+    narrateB: "二游进入内容卷时代，没有好剧情好美术根本活不下去。",
+  },
+  2025: {
+    hot: ["AI_NATIVE", "LEGACY"],
+    mocked: "OPENWORLD",
+    catchphrase: "AI即内容，内容即留存",
+    representatives: ["崩坏：星穹铁道（长线）", "AI叙事类新游"],
+    mockedFlavor: "「你还搁那开放世界呢？开放世界你做得完么？」",
+    narrateA: "AI原生游戏开始出现，AI成为标配工具。",
+    narrateB: "怀旧向游戏证明了老用户的付费能力。",
+  },
+  2026: {
+    hot: [],
+    mocked: null,
+    catchphrase: "AI不是功能，是底层",
+    representatives: ["AI驱动叙事社交", "空间交互手游"],
+    special: "confused_year",
+    narrateA: "2026年，没有人知道下一个风口在哪里。",
+    narrateB: "AI渗透到每个环节，成为基础设施。",
+  },
 };
+const UNLOCK_TABLE = [
+  {
+    playerBackground: "designer",
+    industryBackground: null,
+    direction: "AUTO_CHESS",
+    years: [2018],
+    selectBonus: { matchThresholdDelta: -5 },
+    inPoolBonus: { qualityDebtDelta: -5 },
+    pitch: "这个玩法形态你在卡牌设计里隐约想到过。",
+  },
+  {
+    playerBackground: "engineer",
+    industryBackground: null,
+    direction: "OPENWORLD",
+    years: [2017, 2018, 2019],
+    selectBonus: { matchThresholdDelta: -5 },
+    inPoolBonus: { progressEfficiencyMultiplier: 1.1 },
+    pitch: "别人说做不到，但你知道技术上是可行的。",
+  },
+  {
+    playerBackground: "artist",
+    industryBackground: null,
+    direction: "ANIME",
+    years: [2013, 2014, 2015],
+    selectBonus: { qualityDebtAccumRate: 0.9 },
+    inPoolBonus: { mockedMoralePenaltyMultiplier: 0.5 },
+    pitch: "美术品质就是护城河，这个赛道你有感觉。",
+  },
+  {
+    playerBackground: "pm",
+    industryBackground: null,
+    direction: "GLOBAL",
+    years: [2019, 2020, 2021],
+    selectBonus: { budgetCostMultiplier: 0.95 },
+    inPoolBonus: { manageUpMultiplier: 1.2 },
+    pitch: "跨地区协作你推过，出海的坑你比别人少踩。",
+  },
+  {
+    playerBackground: "outsider",
+    industryBackground: "realestate",
+    direction: "SLG",
+    years: [2012, 2013, 2014, 2015, 2016],
+    selectBonus: { budgetDelta: 10 },
+    inPoolBonus: null,
+    pitch: "长线系统性运营——这个逻辑你在另一个行业做过。",
+  },
+  {
+    playerBackground: "outsider",
+    industryBackground: "education",
+    direction: "ROMANCE",
+    years: [2015, 2016, 2017],
+    selectBonus: { moraleDelta: 5 },
+    inPoolBonus: { comfortMultiplier: 1.1 },
+    pitch: "情感连接和内容驱动，你比游戏圈的人更懂用户。",
+  },
+  {
+    playerBackground: "outsider",
+    industryBackground: "finance",
+    direction: "MINI_GAME",
+    years: [2022, 2023],
+    selectBonus: { budgetPrecisionDisplay: true },
+    inPoolBonus: null,
+    pitch: "成本低、赔率高——这个结构你一眼算明白了。",
+  },
+  {
+    playerBackground: "outsider",
+    industryBackground: "film",
+    direction: "IP_PORT",
+    years: [2012, 2013, 2014, 2015, 2016, 2017],
+    selectBonus: { qualityDebtDelta: -10 },
+    inPoolBonus: { qualityDebtDelta: -10 },
+    pitch: "IP改编的大坑你在影视圈见过，你知道怎么绕。",
+  },
+  {
+    playerBackground: "outsider",
+    industryBackground: "blockchain",
+    direction: "METAVERSE",
+    years: [2020, 2021],
+    selectBonus: { bossTrustDelta: 1, budgetDelta: 10 },
+    inPoolBonus: { bossTrustDelta: 1, budgetDelta: 10 },
+    pitch: "这个概念你比所有人都先见过——至少你是这么认为的。",
+  },
+  {
+    playerBackground: "outsider",
+    industryBackground: "blockchain",
+    direction: "AI_NATIVE",
+    years: [2024, 2025, 2026],
+    selectBonus: { bossTrustDelta: 1, budgetDelta: 10 },
+    inPoolBonus: { bossTrustDelta: 1, budgetDelta: 10 },
+    pitch: "从链圈到AI，你擅长在风口里找钱。",
+  },
+  {
+    playerBackground: "outsider",
+    industryBackground: "mcn",
+    direction: "PARTY",
+    years: [2021, 2022, 2023, 2024],
+    selectBonus: { manageUpMultiplier: 1.2 },
+    inPoolBonus: { bossInterveneMultiplier: 0.8 },
+    pitch: "社交裂变和UGC，你在直播间天天干这个。",
+  },
+];
+
+function getBackgroundUnlock(playerBackground, industryBackground, marketYear) {
+  if (!playerBackground) return [];
+  return UNLOCK_TABLE.filter(rule => {
+    if (rule.playerBackground !== playerBackground) return false;
+    if (rule.industryBackground !== null && rule.industryBackground !== industryBackground) return false;
+    if (!rule.years.includes(marketYear)) return false;
+    return true;
+  });
+}
+
+function getBackgroundBonus(state, key) {
+  if (!state.backgroundBonuses) return null;
+  for (const bonus of state.backgroundBonuses) {
+    if (bonus[key] !== undefined) return bonus[key];
+  }
+  return null;
+}
+
+function buildDirectionPool(marketYear, playerBackground, industryBackground) {
+  const year = YEAR_DATA[marketYear];
+
+  if (year.special === "confused_year") return null;
+
+  const hot = year.hot;
+  const mocked = year.mocked;
+
+  let basePool;
+  if (hot.length <= 2) {
+    basePool = [...hot, mocked].filter(Boolean);
+  } else {
+    const secondary = hot[1 + Math.floor(Math.random() * (hot.length - 1))];
+    basePool = [hot[0], mocked, secondary];
+  }
+
+  const unlocks = getBackgroundUnlock(playerBackground, industryBackground, marketYear);
+
+  if (unlocks.length === 0) {
+    return basePool.map(d => ({ direction: d }));
+  }
+
+  let pool = basePool.map(d => ({ direction: d }));
+
+  for (const unlock of unlocks) {
+    const existingIdx = pool.findIndex(p => p.direction === unlock.direction);
+    if (existingIdx >= 0) {
+      pool[existingIdx] = {
+        ...pool[existingIdx],
+        backgroundBonus: unlock.inPoolBonus || unlock.selectBonus,
+        pitch: unlock.pitch,
+        tag: "背景加成",
+      };
+    } else {
+      pool.push({
+        direction: unlock.direction,
+        backgroundBonus: unlock.selectBonus,
+        pitch: unlock.pitch,
+        tag: "背景加成",
+      });
+    }
+  }
+
+  return pool;
+}
+
+function checkDirectionMatch(gameDirection, marketYear) {
+  const { hot, mocked } = YEAR_DATA[marketYear];
+
+  if (gameDirection === hot[0]) return "primary";
+  if (hot.slice(1).includes(gameDirection)) return "secondary";
+  if (gameDirection === mocked) return "mocked";
+  return "neutral";
+}
+
+function getMockedEvent(marketYear) {
+  const flavor = YEAR_DATA[marketYear]?.mockedFlavor || "「这个方向已经过时了。」";
+  return {
+    id: "peer_mock",
+    name: "同行质疑",
+    emoji: "👀",
+    color: "#64748b",
+    tagline: "「你确定要做这个方向？」",
+    situation: "行业沙龙上，有人认出了你做的方向：",
+    dialogue: flavor,
+    choices: [
+      { text: "我们做的不一样。", effects: { morale: 3, bossTrust: 0 }, result: "他点点头，没再说什么。你知道他不信。" },
+      { text: "微笑，换话题。", effects: { morale: 0, bossTrust: 0 }, result: "你们换了个话题。那句话留在空气里。" },
+      { text: "「你说得对，我们在重新评估。」", effects: { morale: -5, bossTrust: 1 }, result: "他满意地点头。你的老板后来不知从哪听说了这件事，觉得你很务实。" },
+    ],
+  };
+}
+
+const MARKET_TREND_FLAVORS = {
+  CASUAL: {
+    gameName: "《萌萌消消乐》",
+    genre: "休闲消除",
+    quote: "月流水破亿！休闲游戏门槛低、用户广，我们能不能出个轻量版本顺带收割一波？",
+  },
+  CARD: {
+    gameName: "《神将传说》",
+    genre: "卡牌抽卡",
+    quote: "你看这个SSR保底设计，太聪明了！我们的抽卡系统能不能也搞一套？月活直接翻。",
+  },
+  SLG: {
+    gameName: "《列国征途》",
+    genre: "SLG策略",
+    quote: "出海SLG现在就是印钞机！我们的玩法能不能加个地图争霸，全球同服？",
+  },
+  ARPG: {
+    gameName: "《天命战神》",
+    genre: "动作RPG",
+    quote: "端转手这条路走通了！我们的战斗系统能不能做出点打击感？就这一点。",
+  },
+  MOBA: {
+    gameName: "《英魂之刃》",
+    genre: "MOBA竞技",
+    quote: "MOBA手游现在最热！我们能不能加个5v5模式进去？哪怕是个小地图也行。",
+  },
+  IDLE: {
+    gameName: "《无尽挂机》",
+    genre: "放置挂机",
+    quote: "挂机游戏留存率超高！我们能不能加个离线收益系统？开发量不大吧？",
+  },
+  OPENWORLD: {
+    gameName: "《苍穹纪元》",
+    genre: "开放世界",
+    quote: "开放世界现在是标配！我们的地图能不能做大一点，加个探索系统？",
+  },
+  ROMANCE: {
+    gameName: "《与你相遇》",
+    genre: "女性向养成",
+    quote: "女性向蓝海！我们能不能加几个NPC好感度系统，女性用户你得要啊。",
+  },
+  PARTY: {
+    gameName: "《欢乐大派对》",
+    genre: "派对竞技",
+    quote: "UGC起来了！我们能不能做个联机模式搞点社交裂变，就像蛋仔那样？",
+  },
+  AI_NATIVE: {
+    gameName: "《AI纪元》",
+    genre: "AI原生",
+    quote: "AI生成内容这个方向太厉害了！我们的NPC能不能接个大模型进去？现在不做就晚了。",
+  },
+};
+
+function getMarketTrendEvent(marketYear) {
+  const yearData = YEAR_DATA[marketYear];
+  const hotDirection = yearData ? yearData.hot[0] : "CASUAL";
+  const flavor = MARKET_TREND_FLAVORS[hotDirection] || MARKET_TREND_FLAVORS["CASUAL"];
+
+  return {
+    id: "market_trend",
+    name: "跟风热",
+    emoji: "🌊",
+    color: "#06b6d4",
+    tagline: `「${flavor.gameName}这周爆了，我们要跟吗？」`,
+    situation: "老板转发了一篇爆款分析文章，把你拉进了一个临时会议：",
+    dialogue: `${flavor.gameName}这周数据太好看了！${flavor.genre}现在最热！${flavor.quote}`,
+    choices: [
+      {
+        text: "全力融入，方向转型",
+        effects: { progress: -9, morale: 5, budget: -10 },
+        result: "兴奋持续了三天。团队发现转型意味着三个月白干。",
+      },
+      {
+        text: `表面融入，加个「${flavor.genre}探索模式」`,
+        effects: { progress: -4, morale: -3, budget: -5 },
+        result: "做出了一个四不像。玩家不买账，老板也不满意。",
+      },
+      {
+        text: "礼貌拒绝，坚守核心方向",
+        effects: { progress: 1, morale: -8, budget: 0 },
+        result: "老板有点不开心。但项目没乱。六个月后那个热点凉了。",
+      },
+    ],
+  };
+}
 
 const COMPANY_DIRECTION_FILTER = {
   big: ["OPENWORLD", "ARPG", "MOBA", "SLG"],
@@ -967,6 +1617,96 @@ const PEER_MOCK_EVENT = {
   ],
 };
 
+const CONFUSED_YEAR_STRATEGY_EVENT = {
+  id: "confused_year_strategy",
+  name: "你要做什么？",
+  emoji: "🌫️",
+  color: "#64748b",
+  tagline: "「这一年，没有人知道答案。」",
+  situation: "立项会上，老板问了你一个问题：",
+  dialogue: "「你觉得我们应该做什么方向？」\n\n会议室安静了。\n前几年的风口一个接一个地凉了，资本开始退潮，行业里雷声不断。\n没有人知道下一个风口在哪里——甚至没有人确定还有没有风口。\n你看着白板，上面写着三个选项。",
+  choices: [
+    { text: "「跟上AI，这是唯一确定的方向。」", effects: { morale: -3 }, direction: "AI_NATIVE", result: "团队沉默了一下。有人在记事本上写了'AI'，然后划掉了，然后又写上。" },
+    { text: "「先活下去，做能卖出去的东西。」", effects: { budget: 5 }, direction: "LEGACY", result: "这是最保守的答案。老板点了点头，没有表现出失望，也没有表现出期待。" },
+    { text: "「我们找一个别人还没做的缝隙——成本低，赌出来就大赚。」", effects: { morale: 5, bossTrust: -1 }, direction: "MINI_GAME", result: "他抬头看了你一眼。「小游戏？」他顿了一下，「……行，你来负责。」投资方那边，你知道他们现在更喜欢这个。" },
+  ],
+};
+
+const CAPITAL_WAVE_EVENT = {
+  id: "capital_wave",
+  name: "资本来了",
+  emoji: "💰",
+  color: "#10b981",
+  tagline: "「只要利润率比银行存款高，他们就愿意投。」",
+  situation: "你接到了一个陌生电话：",
+  dialogue: "对方自报家门，是某投资机构的合伙人。\n\n「我们最近在看游戏赛道。你们项目……有没有融资计划？\n只要你告诉我，你提供的利润率比银行存款利率高，我们就可以谈。」\n你看了一眼手里的预算表。",
+  choices: [
+    { text: "「我们对融资开放，欢迎深入了解。」", effects: { budget: 20, bossTrust: 1 }, scheduledEvent: { delay: 8, id: "capital_pressure" }, result: "他很满意。钱进来了。你隐约觉得这笔钱有点烫手。" },
+    { text: "「我们暂时不考虑外部融资。」", effects: { morale: 3 }, result: "他说了声好，挂了电话。你不知道这个决定对不对。" },
+    { text: "「能不能先了解一下你们的诉求？」", effects: { budget: 10, bossTrust: 0 }, scheduledEvent: { delay: 6, id: "capital_pressure" }, result: "谈了两个小时。你拿到了钱，但也多了一个需要汇报的人。" },
+  ],
+};
+
+const CAPITAL_PRESSURE_EVENT = {
+  id: "capital_pressure",
+  name: "资本来问账了",
+  emoji: "📊",
+  color: "#f59e0b",
+  tagline: "「DAU多少？留存怎么样？」",
+  situation: "投资方合伙人发来一条消息，语气和第一次打电话时完全不同：",
+  dialogue: "「你们上个月的数据我看了。\nDAU没达到我们投前聊的预期。\n留存率……我们需要见一面。\n对了，我有几个建议，你们的方向可能需要调整一下。」\n你看着消息，想起他第一次打电话时的语气。",
+  choices: [
+    { text: "「好，我们来聊。」", effects: { bossTrust: -1, morale: -5 }, scheduledEvent: { delay: 4, id: "capital_direction_change" }, result: "见面谈了两个小时。他的「建议」其实是要求。你带着一页修改意见回到公司，不知道怎么跟团队说。" },
+    { text: "「数据我来解释，方向我们不会改。」", effects: { bossTrust: 1, morale: 3, budget: -10 }, result: "他沉默了很久。「好，你来负责。」\n你知道这句话的意思——如果后面数据还不行，这是你签字的。" },
+    { text: "「我们需要更多时间，数据还在爬坡。」", effects: { morale: -3 }, scheduledEvent: { delay: 3, id: "capital_pressure" }, result: "他接受了。这个月。\n你在日历上标了下次汇报的日期，感觉像是在倒计时。" },
+  ],
+};
+
+const CAPITAL_DIRECTION_CHANGE_EVENT = {
+  id: "capital_direction_change",
+  name: "资方建议",
+  emoji: "📋",
+  color: "#dc2626",
+  tagline: "「有几个小建议，你们评估一下。」",
+  situation: "投资方发来了修改后的「建议清单」，格式化成了一份PPT：",
+  dialogue: "第3页：「建议增加付费点设计，参考XX游戏」\n第7页：「建议优化变现路径，DAU转化率目标提升至X%」\n第12页：「建议评估方向调整可行性，当前赛道竞争过于激烈」\n最后一页写着：「以上建议请于两周内给出书面回复。」",
+  choices: [
+    { text: "「部分接受，付费点我们可以优化。」", effects: { qualityDebt: 10, budget: 8 }, result: "你把第3页的意见转给了策划组。他们没有说什么，开始改需求文档。" },
+    { text: "「全部拒绝，按我们的节奏来。」", effects: { bossTrust: -2, morale: 8 }, result: "你发了一封非常礼貌的拒绝邮件。团队知道了，有人私下找你说了声谢谢。\n你不知道这件事会有什么后果。" },
+    { text: "「开个会，让团队自己决定接受哪些。」", effects: { morale: -5, progress: -3 }, result: "会开了三个小时。最后达成的共识是：什么都没定。但大家都有点累。" },
+  ],
+};
+
+const CHESS_CARD_JQK_EVENT = {
+  id: "chess_card_jqk",
+  name: "翻译问题",
+  emoji: "🃏",
+  color: "#8b5cf6",
+  tagline: "「J应该叫什么？」",
+  situation: "本地化团队发来了一个紧急问题：",
+  dialogue: "「我们的棋牌游戏要上线，但扑克牌的JQK怎么翻译成中文？\nJ叫'武士'？'骑士'？还是就叫'J'？\nQ叫'皇后'还是'女王'？K叫'国王'还是'老K'？\n用户研究显示，35岁以上用户认'老K'，18-25岁用户认'K'……\n这是个紧急问题，今晚要定。」",
+  choices: [
+    { text: "「J/Q/K，国际化，年轻用户优先。」", effects: { morale: 3 }, result: "上线后，有用户投诉说'不中国'。有用户说'终于正常了'。各占一半。" },
+    { text: "「武士/皇后/国王，本土化。」", effects: { progress: -1 }, result: "改文案花了一天。上线后没人提这件事。" },
+    { text: "「这不是紧急问题，维持原样先上。」", effects: { qualityDebt: 5 }, result: "维持了J/Q/K英文。第一个差评是关于这个的。" },
+  ],
+};
+
+const AUTO_CHESS_WINDOW_EVENT = {
+  id: "auto_chess_window",
+  name: "窗口期",
+  emoji: "⏳",
+  color: "#f59e0b",
+  tagline: "「只有三个月。」",
+  situation: "老朋友发来消息：",
+  dialogue: "「自走棋这个品类，我认识的几个团队都在做。\n有人说窗口期只有三个月——做出来就是钱，做不出来就什么都没了。\n你们现在进度怎么样？」\n你看了一眼进度条。",
+  choices: [
+    { text: "「全力冲刺，窗口期内上线。」", effects: { progress: 10, morale: -12, qualityDebt: 15 }, result: "上线了。质量粗糙，但赶上了窗口。" },
+    { text: "「按计划做，质量第一。」", effects: { morale: 5 }, result: "你没有改变节奏。三个月后，市场上已经有七款自走棋。" },
+    { text: "「重新评估，窗口期可能已经关了。」", effects: { progress: -5, bossTrust: 1 }, result: "你跟老板说了你的判断。他沉默了一会儿，说：'你觉得我们还要继续吗？'" },
+  ],
+};
+
 const MARKET_BOOM_EVENT = {
   id: "market_boom",
   name: "市场热潮",
@@ -996,11 +1736,11 @@ export default function App() {
   const [cardStep, setCardStep] = useState(0);
   const [pickedCards, setPickedCards] = useState([]);
 
-  const [state, setState] = useState(() => {
-    const years = [2010, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026];
-    const marketYear = years[Math.floor(Math.random() * years.length)];
-    return { week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust: Math.floor(Math.random() * 6) + 3, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, directionChosen: false, directionDelayPenalty: false, marketYear, companySize: "mid", kpiState: "normal", ipType: "none", ipActive: false, ipProtectUsed: 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, manageUpCount: 0 };
-  });
+   const [state, setState] = useState(() => {
+     const years = [2010, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026];
+     const marketYear = years[Math.floor(Math.random() * years.length)];
+     return { week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust: Math.floor(Math.random() * 6) + 3, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, directionChosen: false, directionDelayPenalty: false, marketYear, companySize: "mid", kpiState: "normal", ipType: "none", ipActive: false, ipProtectUsed: 0, ipProtectCount: 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, honestyHintShown: false, peopleHintShown: false, qualityHintShown: false };
+   });
 
   const [workMode, setWorkMode] = useState("normal");
   const [overtimeType, setOvertimeType] = useState("pay");
@@ -1008,6 +1748,123 @@ export default function App() {
   const [apSpent, setApSpent] = useState(0);
   const [freezeDone, setFreezeDone] = useState(false);
   const [activeTip, setActiveTip] = useState(null);
+  const [teamPanelExpanded, setTeamPanelExpanded] = useState(true);
+  const [recruitCandidate, setRecruitCandidate] = useState(null);
+  const [layoffPanelOpen, setLayoffPanelOpen] = useState(false);
+  const [layoffConfirmMember, setLayoffConfirmMember] = useState(null);
+  const [layoffPendingMember, setLayoffPendingMember] = useState(null);
+  const [recruitResultMessage, setRecruitResultMessage] = useState("");
+
+  const apTotalForAction = WORK_MODES[workMode].ap + (state.apBonusPerWeek || 0);
+  const apLeftForAction = Math.max(0, apTotalForAction - apSpent);
+  const isMonthEndForAction = state.week % 4 === 0;
+  const ctxForAction = { freezeDone, isMonthEnd: isMonthEndForAction };
+  const healthTierForAction = getProductHealthTier(getProductHealthScore(state.qualityDebt, state.gameDirection, state.marketYear));
+
+   const takeAction = useCallback((action) => {
+     if (apLeftForAction < action.ap) return;
+     if (!action.available(state, ctxForAction)) return;
+     setRecruitResultMessage("");
+
+     if (action.id === "campus" || action.id === "social") {
+      const roles = ['engineer', 'designer', 'qa', 'producer', 'other'];
+      const role = roles[Math.floor(Math.random() * roles.length)];
+      const tags = action.id === "campus" ? CAMPUS_TAGS : SOCIAL_TAGS;
+      const shuffled = [...tags].sort(() => Math.random() - 0.5);
+      const selectedTags = shuffled.slice(0, 2);
+      const seniority = action.id === "campus" ? "fresh" : (Math.random() < 0.5 ? "mid" : "veteran");
+      const isTroublemaker = action.id === "social" && Math.random() < 0.3;
+
+      setRecruitCandidate({
+        type: action.id,
+        role,
+        seniority,
+        tags: selectedTags,
+        apCost: action.ap,
+        hiddenType: isTroublemaker ? "troublemaker" : null,
+      });
+      setRecruitResultMessage("");
+      return;
+    }
+
+    if (action.id === "layoff") {
+      setLayoffPanelOpen(true);
+      setApSpent(p => p + action.ap);
+      return;
+    }
+
+    setState(prev => {
+      let result = action.apply(prev);
+      if (action.id === "care" || action.id === "comfort") {
+        const healDelta = result.morale - prev.morale;
+        if (healDelta > 0) {
+          const mult = healthTierForAction.healMult;
+          result = { ...result, morale: Math.min(100, prev.morale + Math.round(healDelta * mult)) };
+        }
+      }
+      return result;
+    });
+    setApSpent(p => p + action.ap);
+    if (action.id === "freeze") setFreezeDone(true);
+  }, [apLeftForAction, state, ctxForAction, healthTierForAction]);
+
+  const handleHireCandidate = useCallback(() => {
+    if (!recruitCandidate) return;
+    const { type, role, seniority, apCost, hiddenType } = recruitCandidate;
+    const newMember = {
+      id: `${type}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      role,
+      seniority,
+      source: type,
+      contribution: seniority === "veteran"
+        ? { progressEfficiency: 1.2, moraleBase: 0, budgetCoeff: 1.3 }
+        : seniority === "mid"
+        ? { progressEfficiency: 0.9, moraleBase: 2, budgetCoeff: 0.9 }
+        : { progressEfficiency: 0.5, moraleBase: -2, budgetCoeff: 0.5 },
+      weeksJoined: 0,
+      hiddenType,
+    };
+    setState(prev => ({
+      ...prev,
+      teamSlots: [...prev.teamSlots, newMember],
+      budget: type === "social" ? Math.max(0, prev.budget - 15) : prev.budget,
+    }));
+    setApSpent(p => p + apCost);
+    setRecruitResultMessage(`${ROLE_NAMES[role]} 加入了团队。`);
+    setRecruitCandidate(null);
+  }, [recruitCandidate]);
+
+  const handleSkipCandidate = useCallback(() => {
+    setRecruitCandidate(null);
+    setRecruitResultMessage("");
+  }, []);
+
+  const handleRequestLayoffConfirm = useCallback((member) => {
+    setLayoffPendingMember(member);
+  }, []);
+
+  const handleConfirmLayoff = useCallback(() => {
+    if (!layoffPendingMember) return;
+    const memberId = layoffPendingMember.id;
+    setState(prev => ({
+      ...prev,
+      teamSlots: prev.teamSlots.filter(m => m.id !== memberId),
+      bossTrust: Math.max(0, prev.bossTrust - 1),
+      morale: Math.max(0, prev.morale - 10),
+      people: Math.max(0, prev.people - 2),
+    }));
+    setLayoffConfirmMember(layoffPendingMember);
+    setLayoffPendingMember(null);
+    setLayoffPanelOpen(false);
+  }, [layoffPendingMember]);
+
+  const handleCancelLayoffConfirm = useCallback(() => {
+    setLayoffPendingMember(null);
+  }, []);
+
+  const handleCloseLayoffResult = useCallback(() => {
+    setLayoffConfirmMember(null);
+  }, []);
 
   const [weekPhase, setWeekPhase] = useState("planning"); // "planning" | "event"
   const [showMonthSummary, setShowMonthSummary] = useState(false);
@@ -1045,17 +1902,24 @@ export default function App() {
        };
      }
      
-     if (newWeek === 2 && !s.directionChosen) {
-       const availableDirs = COMPANY_DIRECTION_FILTER[s.companySize] || COMPANY_DIRECTION_FILTER.mid;
-       const shuffled = [...availableDirs].sort(() => Math.random() - 0.5).slice(0, 3);
-       const choices = shuffled.map(dirId => ({
-         text: `${DIRECTIONS[dirId].label} — ${DIRECTIONS[dirId].pitch}`,
-         effects: {},
-         direction: dirId,
-         result: `你决定走${DIRECTIONS[dirId].label}路线。`,
-       }));
-       return { ...DIRECTION_SELECT_EVENT, choices };
-     }
+       if (newWeek === 2 && !s.directionChosen) {
+         const pool = buildDirectionPool(s.marketYear, s.playerBackground, s.industryBackground);
+         
+         if (pool === null) {
+           return CONFUSED_YEAR_STRATEGY_EVENT;
+         }
+         
+         const choices = pool.map(item => ({
+           text: item.tag
+             ? `${DIRECTIONS[item.direction].label} — ${item.pitch} [背景加成]`
+             : `${DIRECTIONS[item.direction].label} — ${DIRECTIONS[item.direction].pitch}`,
+           effects: {},
+           direction: item.direction,
+           backgroundBonus: item.backgroundBonus || null,
+           result: `你决定走${DIRECTIONS[item.direction].label}路线。`,
+         }));
+         return { ...DIRECTION_SELECT_EVENT, choices };
+       }
      
      if (!s.directionChosen && newWeek >= 5) {
        if (newWeek === 5) {
@@ -1093,12 +1957,24 @@ export default function App() {
        };
      }
      
-     if (s.gameDirection && !s.narrationsUsed?.includes("peer_mock")) {
-       const yearData = YEAR_DATA[s.marketYear];
-       if (yearData?.mocked && yearData.mocked === s.gameDirection && newWeek >= 8 && newWeek <= 12 && Math.random() < 0.4) {
-         return PEER_MOCK_EVENT;
-       }
-     }
+      if (s.gameDirection && !s.narrationsUsed?.includes("peer_mock")) {
+        const yearData = YEAR_DATA[s.marketYear];
+        if (yearData?.mocked && yearData.mocked === s.gameDirection && newWeek >= 8 && newWeek <= 12 && Math.random() < 0.4) {
+          return getMockedEvent(s.marketYear);
+        }
+      }
+
+      if (s.marketYear === 2012 && s.gameDirection === "CHESS_CARD" && newWeek >= 2 && newWeek <= 5 && !s.narrationsUsed?.includes("chess_card_jqk")) {
+        return CHESS_CARD_JQK_EVENT;
+      }
+
+      if (s.marketYear === 2019 && s.gameDirection === "AUTO_CHESS" && newWeek === 12 && !s.narrationsUsed?.includes("auto_chess_window")) {
+        return AUTO_CHESS_WINDOW_EVENT;
+      }
+
+      if (s.marketYear === 2020 && newWeek >= 8 && newWeek <= 16 && !s.narrationsUsed?.includes("capital_wave") && Math.random() < 0.3) {
+        return CAPITAL_WAVE_EVENT;
+      }
      
      const monthEnd = (newWeek - 1) % 4 === 0;
      
@@ -1125,33 +2001,43 @@ export default function App() {
        return MARKET_BOOM_EVENT;
      }
      
-     if (s.scheduledEvents && s.scheduledEvents.length > 0) {
-       const due = s.scheduledEvents.find(e => e.week <= newWeek);
-       if (due) {
-         if (due.id === "boss_talk") return BOSS_TALK;
-         if (due.id === "hire_reveal") return HIRE_REVEAL_EVENT;
-         const event = EVENTS.find(e => e.id === due.id) || LUCID_P2;
-         return event;
+       if (s.scheduledEvents && s.scheduledEvents.length > 0) {
+         const due = s.scheduledEvents.find(e => e.week <= newWeek);
+         if (due) {
+           if (due.id === "boss_talk") return BOSS_TALK;
+           if (due.id === "hire_reveal") return HIRE_REVEAL_EVENT;
+           if (due.id === "capital_pressure") return CAPITAL_PRESSURE_EVENT;
+           if (due.id === "capital_direction_change") return CAPITAL_DIRECTION_CHANGE_EVENT;
+           if (TRUST_DECAY_EVENTS[due.id]) {
+             return TRUST_DECAY_EVENTS[due.id];
+           }
+           const event = EVENTS.find(e => e.id === due.id) || LUCID_P2;
+           return event;
+         }
        }
-     }
      
-     if (s.pendingEvents && s.pendingEvents.length > 0) {
-       if (s.pendingEvents[0] === "zombie_reveal") return ZOMBIE_REVEAL;
-       const pendingEvent = EVENTS.find(e => e.id === s.pendingEvents[0]);
-       if (pendingEvent) return pendingEvent;
-     }
+      if (s.pendingEvents && s.pendingEvents.length > 0) {
+        if (s.pendingEvents[0] === "zombie_reveal") return ZOMBIE_REVEAL;
+        if (s.pendingEvents[0] === "market_trend") return getMarketTrendEvent(s.marketYear);
+        const pendingEvent = EVENTS.find(e => e.id === s.pendingEvents[0]);
+        if (pendingEvent) return pendingEvent;
+      }
      
      if (!s.lucidTriggered && newWeek >= 3 && newWeek <= 16 && Math.random() < 0.125) {
        return LUCID_P1;
      }
      
-     let pool = [...EVENTS];
-     
-     if (s.kpiState === "tight") {
-       CORP_EVENTS.forEach(id => {
-         const e = EVENTS.find(x => x.id === id);
-         if (e && Math.random() < 0.3) pool.push(e);
-       });
+      let pool = [...EVENTS.filter(e => e.id !== "market_trend")];
+      
+      if (s.kpiState === "tight") {
+        CORP_EVENTS.forEach(id => {
+          if (id === "market_trend" && Math.random() < 0.3) {
+            pool.push(getMarketTrendEvent(s.marketYear));
+            return;
+          }
+          const e = EVENTS.find(x => x.id === id);
+          if (e && Math.random() < 0.3) pool.push(e);
+        });
        pool = pool.filter(e => {
          if (e.id === "dreamer" || e.id === "visionary") return Math.random() < 0.7;
          return true;
@@ -1168,28 +2054,41 @@ export default function App() {
        });
      }
      
-     if (s.bossTrust <= 4) {
-       CORP_EVENTS.forEach(id => {
-         const e = EVENTS.find(x => x.id === id);
-         if (e) pool.push(e);
-       });
-     }
-     if (s.bossTrust >= 8) {
-       pool = pool.filter(e => !CORP_EVENTS.includes(e.id) || Math.random() < 0.5);
-     }
+      if (s.bossTrust <= 4) {
+        CORP_EVENTS.forEach(id => {
+          if (id === "market_trend") {
+            pool.push(getMarketTrendEvent(s.marketYear));
+            return;
+          }
+          const e = EVENTS.find(x => x.id === id);
+          if (e) pool.push(e);
+        });
+      }
+      if (s.bossTrust >= 8) {
+        pool = pool.filter(e => !CORP_EVENTS.includes(e.id) || Math.random() < 0.5);
+      }
      
-     if (!s.manpowerTriggered && newWeek >= 5 && newWeek <= 18 && pool.find(e => e.id === "manpower")) {
-       const idx = pool.findIndex(e => e.id === "manpower");
-       if (idx >= 0) pool.splice(idx, 1);
-       if (Math.random() < 0.1) {
-         return MANPOWER_EVENT;
-       }
-     } else {
-       const idx = pool.findIndex(e => e.id === "manpower");
-       if (idx >= 0) pool.splice(idx, 1);
-     }
-     
-     return pool[Math.floor(Math.random() * pool.length)];
+      if (!s.manpowerTriggered && newWeek >= 5 && newWeek <= 18 && pool.find(e => e.id === "manpower")) {
+        const idx = pool.findIndex(e => e.id === "manpower");
+        if (idx >= 0) pool.splice(idx, 1);
+        if (Math.random() < 0.1) {
+          return MANPOWER_EVENT;
+        }
+      } else {
+        const idx = pool.findIndex(e => e.id === "manpower");
+        if (idx >= 0) pool.splice(idx, 1);
+      }
+      
+      if (s.gameDirection && s.directionChosen) {
+        const dirEvents = DIRECTION_SPECIFIC_EVENTS.filter(e =>
+          e.direction === s.gameDirection
+          && newWeek >= e.minWeek
+          && !(s.narrationsUsed || []).includes(e.id)
+        );
+        pool = [...pool, ...dirEvents];
+      }
+      
+      return pool[Math.floor(Math.random() * pool.length)];
    }, [state]);
 
   useEffect(() => {
@@ -1198,13 +2097,16 @@ export default function App() {
 
   // Card handlers
   const handleCardPick = (step, card) => {
+    const activeGroups = getActiveCardGroups(pickedCards);
+    const groupIdx = CARD_GROUPS.indexOf(activeGroups[step]);
     const newPicks = [...pickedCards];
-    newPicks[step] = card;
+    newPicks[groupIdx] = card;
     setPickedCards(newPicks);
   };
 
   const handleCardNext = () => {
-    if (cardStep < CARD_GROUPS.length - 1) {
+    const activeGroups = getActiveCardGroups(pickedCards);
+    if (cardStep < activeGroups.length - 1) {
       setCardStep(s => s + 1);
     } else {
       // All cards picked — build initial state and start game
@@ -1223,25 +2125,151 @@ export default function App() {
        else { moralePenalty = calcPiePenalty(workMode, pieCount, state.progress); newPieCount = pieCount + 1; }
      }
      const workEffect = { workMode, overtimeType, progressBonus: mode.progressBonus, budgetCost, moralePenalty };
+     const healthTier = getProductHealthTier(getProductHealthScore(state.qualityDebt, state.gameDirection, state.marketYear));
 
      let newConfidant = state.confidant;
      let newLucidConfidant = state.lucidConfidant;
      let confidantAppend = "";
      
-     if (event?.id === "direction_select" || event?.id === "direction_forced") {
-       setState(prev => ({
-         ...prev,
-         gameDirection: choice.direction,
-         directionChosen: true,
-         morale: Math.max(0, prev.morale + (choice.effects.morale || 0)),
-       }));
-       setLastResult(choice.result);
-       setLastEffects(choice.effects);
-       setLastWorkEffect(workEffect);
-       setPieCount(newPieCount);
-       setShowResult(true);
-       return;
-     }
+       if (event?.id === "direction_select" || event?.id === "direction_forced" || event?.id === "confused_year_strategy") {
+         const bonus = choice.backgroundBonus;
+         let bonusEffects = { morale: 0, budget: 0, bossTrust: 0, qualityDebt: 0 };
+         if (bonus) {
+           if (bonus.qualityDebtDelta) bonusEffects.qualityDebt = bonus.qualityDebtDelta;
+           if (bonus.budgetDelta) bonusEffects.budget = bonus.budgetDelta;
+           if (bonus.bossTrustDelta) bonusEffects.bossTrust = bonus.bossTrustDelta;
+           if (bonus.moraleDelta) bonusEffects.morale = bonus.moraleDelta;
+         }
+         setState(prev => ({
+           ...prev,
+           gameDirection: choice.direction,
+           directionChosen: true,
+           morale: Math.max(0, prev.morale + (choice.effects.morale || 0) + bonusEffects.morale),
+           budget: Math.min(100, Math.max(0, prev.budget + (choice.effects.budget || 0) + bonusEffects.budget)),
+           bossTrust: Math.min(10, Math.max(0, prev.bossTrust + (choice.effects.bossTrust || 0) + bonusEffects.bossTrust)),
+           qualityDebt: Math.max(0, Math.min(100, prev.qualityDebt + (choice.effects.qualityDebt || 0) + bonusEffects.qualityDebt)),
+           backgroundBonuses: choice.backgroundBonus ? [choice.backgroundBonus] : [],
+         }));
+         setLastResult(choice.result);
+         setLastEffects(choice.effects);
+         setLastWorkEffect(workEffect);
+         setPieCount(newPieCount);
+         setShowResult(true);
+         return;
+       }
+
+       if (event?.id?.startsWith("dir_") && choice.hidden) {
+         setState(prev => {
+           let newState = { ...prev };
+           Object.entries(choice.hidden).forEach(([key, val]) => {
+             if (newState[key] !== undefined) {
+               newState[key] = Math.max(0, Math.min(10, newState[key] + val));
+             }
+           });
+           if (event?.id?.startsWith("dir_")) {
+             newState.narrationsUsed = [...(prev.narrationsUsed || []), event.id];
+           }
+           return newState;
+         });
+       }
+       if (event?.id?.startsWith("dir_") && !choice.hidden) {
+         setState(prev => ({
+           ...prev,
+           narrationsUsed: [...(prev.narrationsUsed || []), event.id],
+         }));
+       }
+
+       if (event?.id === "chess_card_jqk") {
+        setState(prev => ({
+          ...prev,
+          morale: Math.min(100, Math.max(0, prev.morale + (choice.effects.morale || 0))),
+          progress: Math.max(0, prev.progress + (choice.effects.progress || 0)),
+          qualityDebt: Math.min(100, prev.qualityDebt + (choice.effects.qualityDebt || 0)),
+          narrationsUsed: [...(prev.narrationsUsed || []), "chess_card_jqk"],
+        }));
+        setLastResult(choice.result);
+        setLastEffects(choice.effects);
+        setLastWorkEffect(workEffect);
+        setPieCount(newPieCount);
+        setShowResult(true);
+        return;
+      }
+
+      if (event?.id === "auto_chess_window") {
+        setState(prev => ({
+          ...prev,
+          progress: Math.max(0, prev.progress + (choice.effects.progress || 0)),
+          morale: Math.min(100, Math.max(0, prev.morale + (choice.effects.morale || 0))),
+          qualityDebt: Math.min(100, prev.qualityDebt + (choice.effects.qualityDebt || 0)),
+          bossTrust: Math.min(10, Math.max(0, prev.bossTrust + (choice.effects.bossTrust || 0))),
+          narrationsUsed: [...(prev.narrationsUsed || []), "auto_chess_window"],
+        }));
+        setLastResult(choice.result);
+        setLastEffects(choice.effects);
+        setLastWorkEffect(workEffect);
+        setPieCount(newPieCount);
+        setShowResult(true);
+        return;
+      }
+
+      if (event?.id === "capital_wave") {
+        let newScheduledEvents = [...state.scheduledEvents];
+        if (choice.scheduledEvent) {
+          newScheduledEvents.push({ id: choice.scheduledEvent.id, week: state.week + choice.scheduledEvent.delay });
+        }
+        setState(prev => ({
+          ...prev,
+          budget: Math.min(100, Math.max(0, prev.budget + (choice.effects.budget || 0))),
+          bossTrust: Math.min(10, Math.max(0, prev.bossTrust + (choice.effects.bossTrust || 0))),
+          morale: Math.min(100, Math.max(0, prev.morale + (choice.effects.morale || 0))),
+          scheduledEvents: newScheduledEvents,
+          narrationsUsed: [...(prev.narrationsUsed || []), "capital_wave"],
+        }));
+        setLastResult(choice.result);
+        setLastEffects(choice.effects);
+        setLastWorkEffect(workEffect);
+        setPieCount(newPieCount);
+        setShowResult(true);
+        return;
+      }
+
+      if (event?.id === "capital_pressure") {
+        let newScheduledEvents = state.scheduledEvents.filter(e => e.id !== "capital_pressure");
+        if (choice.scheduledEvent) {
+          newScheduledEvents.push({ id: choice.scheduledEvent.id, week: state.week + choice.scheduledEvent.delay });
+        }
+        setState(prev => ({
+          ...prev,
+          bossTrust: Math.min(10, Math.max(0, prev.bossTrust + (choice.effects.bossTrust || 0))),
+          morale: Math.min(100, Math.max(0, prev.morale + (choice.effects.morale || 0))),
+          budget: Math.min(100, Math.max(0, prev.budget + (choice.effects.budget || 0))),
+          scheduledEvents: newScheduledEvents,
+        }));
+        setLastResult(choice.result);
+        setLastEffects(choice.effects);
+        setLastWorkEffect(workEffect);
+        setPieCount(newPieCount);
+        setShowResult(true);
+        return;
+      }
+
+      if (event?.id === "capital_direction_change") {
+        setState(prev => ({
+          ...prev,
+          qualityDebt: Math.min(100, prev.qualityDebt + (choice.effects.qualityDebt || 0)),
+          budget: Math.min(100, Math.max(0, prev.budget + (choice.effects.budget || 0))),
+          bossTrust: Math.min(10, Math.max(0, prev.bossTrust + (choice.effects.bossTrust || 0))),
+          morale: Math.min(100, Math.max(0, prev.morale + (choice.effects.morale || 0))),
+          progress: Math.max(0, prev.progress + (choice.effects.progress || 0)),
+          scheduledEvents: prev.scheduledEvents.filter(e => e.id !== "capital_direction_change"),
+        }));
+        setLastResult(choice.result);
+        setLastEffects(choice.effects);
+        setLastWorkEffect(workEffect);
+        setPieCount(newPieCount);
+        setShowResult(true);
+        return;
+      }
      
      if (event?.id === "ip_reveal") {
        setState(prev => ({ ...prev, ipRevealShown: true }));
@@ -1255,9 +2283,14 @@ export default function App() {
      
      if (event?.id === "peer_mock") {
        const bossTrustDelta = choice.effects.bossTrust || 0;
+       let moraleEffect = choice.effects.morale || 0;
+       const moraleMultiplier = getBackgroundBonus(state, "mockedMoralePenaltyMultiplier");
+       if (moraleMultiplier && moraleEffect < 0) {
+         moraleEffect = Math.round(moraleEffect * moraleMultiplier);
+       }
        setState(prev => ({
          ...prev,
-         morale: Math.min(100, Math.max(0, prev.morale + (choice.effects.morale || 0))),
+         morale: Math.min(100, Math.max(0, prev.morale + moraleEffect)),
          bossTrust: Math.min(10, Math.max(0, prev.bossTrust + bossTrustDelta)),
          narrationsUsed: [...(prev.narrationsUsed || []), "peer_mock"],
        }));
@@ -1380,19 +2413,25 @@ export default function App() {
       } else {
         bossReact = BOSS_OK;
       }
-     } else if (event?.id === "manpower") {
-       if (choice.action === "large") {
-         state.hireScale = "large";
-         state.hireBurdenWeeksLeft = 4;
-         state.hireBurdenRate = 2;
-       } else if (choice.action === "small") {
-         state.hireScale = "small";
-         state.hireBurdenWeeksLeft = 3;
-         state.hireBurdenRate = 1;
-       } else if (choice.action === "refuse") {
-         state.bossTrust = Math.max(0, state.bossTrust - 2);
+     } else if (event?.id === "manpower" || event?.id === "brooks_law" || event?.id === "paratrooper") {
+       if (choice.action === "ipProtect") {
+         if (state.ipProtectCount === 1) {
+           confidantAppend = " IP方的法务说，他们已经帮你们挡了两次了。他顿了一下，没有说第三句话。你听懂了。";
+         }
+       } else if (event?.id === "manpower") {
+         if (choice.action === "large") {
+           state.hireScale = "large";
+           state.hireBurdenWeeksLeft = 4;
+           state.hireBurdenRate = 2;
+         } else if (choice.action === "small") {
+           state.hireScale = "small";
+           state.hireBurdenWeeksLeft = 3;
+           state.hireBurdenRate = 1;
+         } else if (choice.action === "refuse") {
+           state.bossTrust = Math.max(0, state.bossTrust - 2);
+         }
+         state.manpowerTriggered = true;
        }
-       state.manpowerTriggered = true;
      } else if (event?.id === "hire_reveal") {
        if (choice.outcome === "god") {
          state.activeBonus = 1;
@@ -1435,9 +2474,22 @@ export default function App() {
        }
      }
 
-     if (event?.id === "water_reveal") {
-       state.bossTrust = Math.max(0, state.bossTrust - 1);
-     }
+      if (event?.id === "water_reveal" && optionType === 1) {
+        newScheduledEvents.push({ id: "trust_decay_hidden_progress", week: state.week + 6 });
+      }
+      if (event?.id === "kpi_review" && optionType === 0) {
+        newScheduledEvents.push({ id: "trust_decay_promise_broken", week: state.week + 4 });
+      }
+      if (event?.id === "trust_decay_hidden_progress" || event?.id === "trust_decay_promise_broken") {
+        const tdIdx = newScheduledEvents.findIndex(e => e.id === event.id);
+        if (tdIdx >= 0) newScheduledEvents.splice(tdIdx, 1);
+        if (event?.id === "trust_decay_promise_broken") {
+          const expectedProgress = (state.week / TOTAL_WEEKS) * 100;
+          if (state.progress >= expectedProgress - 10) {
+            choice = { ...choice, effects: {} };
+          }
+        }
+      }
      if (event?.id !== "water_reveal" && !isMilestone) {
        bossReact = "";
      }
@@ -1445,14 +2497,22 @@ export default function App() {
       bossReact = "";
     }
 
-    setState(prev => {
-      const pb = (prev.progressBonus || 0) + (prev.progressMomentum || 0) + (prev.activeBonus || 0);
-      const hirePenalty = prev.hireBurdenWeeksLeft > 0 ? prev.hireBurdenRate : 0;
-      const teamCoeff = getTeamProgressCoeff(prev.teamSlots);
-      let newProgress = Math.min(100, Math.max(0, prev.progress + BASE_PROGRESS + (choice.effects.progress || 0) + mode.progressBonus + pb - hirePenalty));
-      let newMorale = Math.min(100, Math.max(0, prev.morale + (choice.effects.morale || 0) - moralePenalty));
-      let newBudget = Math.min(100, Math.max(0, prev.budget + (choice.effects.budget || 0) - budgetCost));
-      const newWeek = prev.week + 1;
+      setState(prev => {
+        const pb = (prev.progressBonus || 0) + (prev.progressMomentum || 0) + (prev.activeBonus || 0);
+        const hirePenalty = prev.hireBurdenWeeksLeft > 0 ? prev.hireBurdenRate : 0;
+        const teamCoeff = getTeamProgressCoeff(prev.teamSlots);
+        let newProgress = Math.min(100, Math.max(0, prev.progress + BASE_PROGRESS + (choice.effects.progress || 0) + mode.progressBonus + pb - hirePenalty));
+        let moraleDelta = (choice.effects.morale || 0) - moralePenalty;
+        if (moraleDelta < 0) moraleDelta = Math.round(moraleDelta * healthTier.dmgMult);
+        let newMorale = Math.min(100, Math.max(0, prev.morale + moraleDelta));
+        const newWeek = prev.week + 1;
+        const month = Math.ceil(newWeek / 4);
+        const teamSize = prev.teamSlots.filter(s => s !== null).length;
+        const weeklyDecay = getMoraleDecay(prev.qualityDebt, teamSize, month)
+                          * getPeopleDecayMultiplier(prev.people)
+                          * (prev.bossTrust >= 8 ? 0.8 : 1.0);
+        newMorale = Math.max(0, newMorale - weeklyDecay);
+        let newBudget = Math.min(100, Math.max(0, prev.budget + (choice.effects.budget || 0) - budgetCost - getWeeklyBudgetDrain(month)));
       const expectedProgress = (newWeek / TOTAL_WEEKS) * 100;
       const newMomentum = newProgress > expectedProgress + 10 ? 1 : newProgress < expectedProgress - 10 ? -1 : 0;
       const newPending = [...(prev.pendingEvents || [])];
@@ -1490,8 +2550,33 @@ export default function App() {
       if (!prev.overtimeThisWeek) {
         newQualityDebt = Math.max(0, newQualityDebt - 2);
       }
-      if (event?.id === "manpower" && choice.action) {
+      if (choice.effects.qualityDebt) {
+        newQualityDebt = Math.min(100, newQualityDebt + choice.effects.qualityDebt);
+      }
+      if (event?.id === "manpower" && choice.action && choice.action !== "ipProtect") {
         newQualityDebt = Math.min(100, newQualityDebt + 5);
+      }
+      if (event?.id === "castle" && optionType === 0 && prev.industryBackground === "film") {
+        newQualityDebt = Math.min(100, newQualityDebt + 5);
+      }
+       const mcnTechEvents = ["legacy", "perfectionist", "visionary"];
+       if (prev.industryBackground === "mcn" && prev.week <= 8 && event && mcnTechEvents.includes(event.id)) {
+         const progDelta = (choice.effects.progress || 0);
+         const morDelta = (choice.effects.morale || 0);
+         const budDelta = (choice.effects.budget || 0);
+         newProgress = Math.min(100, Math.max(0, prev.progress + Math.round(progDelta * 1.2)));
+         newMorale = Math.min(100, Math.max(0, prev.morale + Math.round(morDelta * 1.2)));
+         newBudget = Math.min(100, Math.max(0, prev.budget + Math.round(budDelta * 1.2)));
+       }
+       if (prev.industryBackground === "film" && event?.id === "market_trend" && optionType === 1) {
+         const progDelta = choice.effects.progress || 0;
+         const morDelta = choice.effects.morale || 0;
+         newProgress = Math.min(100, Math.max(0, prev.progress + (progDelta < 0 ? Math.round(progDelta * 0.5) : progDelta)));
+         newMorale = Math.min(100, Math.max(0, prev.morale + (morDelta < 0 ? Math.round(morDelta * 0.5) : morDelta)));
+       }
+      if (prev.industryBackground === "education" && newQualityDebt > (prev.qualityDebt || 0)) {
+        const qdGain = newQualityDebt - (prev.qualityDebt || 0);
+        newQualityDebt = (prev.qualityDebt || 0) + Math.round(qdGain * 1.1);
       }
       const newTeamSlots = prev.teamSlots.map(m => ({
         ...m,
@@ -1505,26 +2590,38 @@ export default function App() {
          if (newQualityDebt >= 80) {
            gamePhase = "bad_release";
          } else if (prev.gameDirection && YEAR_DATA[prev.marketYear]) {
-           const hotDirections = YEAR_DATA[prev.marketYear].hot;
-           const isMatch = hotDirections.includes(prev.gameDirection);
-           const isSecondary = hotDirections.indexOf(prev.gameDirection) === 1;
+           const yearData = YEAR_DATA[prev.marketYear];
+           const isConfusedYear = yearData.special === "confused_year";
            
-           if (!isMatch) {
-             gamePhase = "bad_release";
+           let matchType;
+           if (isConfusedYear) {
+             matchType = "confused";
            } else {
-             const budgetLoss = 1 - newBudget / 100;
-             const trustNorm = prev.bossTrust / 10;
-             const moraleNorm = newMorale / 100;
-             const composite = moraleNorm * 0.3 + trustNorm * 0.3 - budgetLoss * 0.4;
-             const threshold = isSecondary ? 0.35 : 0.45;
-             gamePhase = composite >= threshold ? "great_win" : "win";
+             matchType = checkDirectionMatch(prev.gameDirection, prev.marketYear);
            }
-         } else {
+           
            const budgetLoss = 1 - newBudget / 100;
            const trustNorm = prev.bossTrust / 10;
            const moraleNorm = newMorale / 100;
            const composite = moraleNorm * 0.3 + trustNorm * 0.3 - budgetLoss * 0.4;
-           gamePhase = composite >= 0.45 ? "great_win" : "win";
+           
+            if (matchType === "mocked") {
+              const hasBgBonus = getBackgroundBonus(prev, "matchThresholdDelta") !== null;
+              const counterThreshold = hasBgBonus ? 0.6 : 0.7;
+              if (composite >= counterThreshold) {
+                gamePhase = "counter_win";
+              } else {
+                gamePhase = "bad_release";
+              }
+            } else {
+             const hiddenScore = prev.honesty + prev.people + prev.quality + prev.judgment + prev.grit;
+             const tier = getEndingTier(hiddenScore);
+             gamePhase = tier;
+           }
+         } else {
+           const hiddenScore = prev.honesty + prev.people + prev.quality + prev.judgment + prev.grit;
+           const tier = getEndingTier(hiddenScore);
+           gamePhase = tier;
          }
        }
       if (gamePhase === "playing" && newMorale <= 0) { gamePhase = "lose"; loseReason = "团队士气归零，所有人集体摆烂，项目解散。"; }
@@ -1533,7 +2630,20 @@ export default function App() {
       if (gamePhase === "playing" && event?.id === "boss_talk" && choice.outcome === "C") { gamePhase = "lose"; loseReason = `老板失去了信心。项目在第${state.week}周被终止，你正式离开了这家公司。`; }
       let newVerify = prev.verifyUsedThisMonth;
       if (isMilestone) newVerify = false;
-      return { ...prev, week: newWeek, progress: newProgress, morale: newMorale, budget: newBudget, gamePhase, loseReason, survived: prev.survived + 1, pendingEvents: newPending, progressMomentum: newMomentum, confidant: newConfidant, verifyUsedThisMonth: newVerify, lucidConfidant: newLucidConfidant, scheduledEvents: newScheduled, lucidPhase1, lucidTriggered, hireBurdenWeeksLeft: newHireBurdenWeeksLeft, hireBurdenRate: prev.hireBurdenRate, hireScale: prev.hireScale, problemEmployee: prev.problemEmployee, activeBonus: prev.activeBonus, bossTrust: prev.bossTrust, manpowerTriggered: prev.manpowerTriggered, qualityDebt: newQualityDebt, teamSlots: newTeamSlots, overtimeThisWeek: false };
+      let effectBossTrust = choice.effects.bossTrust || 0;
+      let newHonestyHintShown = prev.honestyHintShown;
+      if (isMilestone && prev.honesty < 3 && !newHonestyHintShown) {
+        newHonestyHintShown = true;
+      }
+      let newQualityHintShown = prev.qualityHintShown;
+      if (!isMilestone && event?.id !== "boss_talk" && prev.quality < 3 && !newQualityHintShown) {
+        newQualityHintShown = true;
+      }
+      let newIpProtectCount = prev.ipProtectCount;
+      if (choice.action === "ipProtect") {
+        newIpProtectCount = Math.max(0, prev.ipProtectCount - 1);
+      }
+      return { ...prev, week: newWeek, progress: newProgress, morale: newMorale, budget: newBudget, gamePhase, loseReason, survived: prev.survived + 1, pendingEvents: newPending, progressMomentum: newMomentum, confidant: newConfidant, verifyUsedThisMonth: newVerify, lucidConfidant: newLucidConfidant, scheduledEvents: newScheduled, lucidPhase1, lucidTriggered, hireBurdenWeeksLeft: newHireBurdenWeeksLeft, hireBurdenRate: prev.hireBurdenRate, hireScale: prev.hireScale, problemEmployee: prev.problemEmployee, activeBonus: prev.activeBonus, bossTrust: Math.min(10, Math.max(0, prev.bossTrust + effectBossTrust)), manpowerTriggered: prev.manpowerTriggered, qualityDebt: newQualityDebt, teamSlots: newTeamSlots, overtimeThisWeek: false, honestyHintShown: newHonestyHintShown, qualityHintShown: newQualityHintShown, ipProtectCount: newIpProtectCount };
     });
 
     setPieCount(newPieCount);
@@ -1545,29 +2655,31 @@ export default function App() {
     setShowResult(true);
     }, [workMode, overtimeType, pieCount, state.progress, state.progressBonus, event, state.confidant, state.lucidConfidant, state.scheduledEvents, state.lucidPhase1, state.lucidTriggered, state.bossTrust, state.hireBurdenWeeksLeft, state.hireBurdenRate, state.hireScale, state.problemEmployee, state.activeBonus, state.manpowerTriggered, state.gamePhase, state.loseReason, state.teamSlots, state.qualityDebt, state.overtimeThisWeek]);
 
-  const nextEvent = useCallback(() => {
-    setShowResult(false);
-    setLastResult("");
-    setLastConfidantReveal("");
-    setLastEffects(null);
-    setLastWorkEffect(null);
-    setApSpent(0);
-    setWeekPhase("planning");
+   const nextEvent = useCallback(() => {
+     setShowResult(false);
+     setLastResult("");
+     setLastConfidantReveal("");
+     setLastEffects(null);
+     setLastWorkEffect(null);
+     setApSpent(0);
+     setWeekPhase("planning");
+     setRecruitResultMessage("");
+     setRecruitCandidate(null);
 
-    let externalMsg = "";
-    if (state.lucidConfidant?.subtype === "external" && Math.random() < 0.2) {
-      externalMsg = `📱 ${EXTERNAL_MESSAGES[Math.floor(Math.random() * EXTERNAL_MESSAGES.length)]}`;
-    }
+     let externalMsg = "";
+     if (state.lucidConfidant?.subtype === "external" && Math.random() < 0.2) {
+       externalMsg = `📱 ${EXTERNAL_MESSAGES[Math.floor(Math.random() * EXTERNAL_MESSAGES.length)]}`;
+     }
 
-    let newLucidConfidant = state.lucidConfidant;
-    if (state.lucidConfidant?.subtype === "unstable" && state.lucidConfidant.usesLeft <= 0) {
-      externalMsg = "他最终还是提了离职。你已经不记得他用的是哪家猎头了。";
-      newLucidConfidant = null;
-    }
-    setLastBossReaction(externalMsg);
-    if (newLucidConfidant !== state.lucidConfidant) {
-      setState(prev => ({ ...prev, lucidConfidant: newLucidConfidant }));
-    }
+      let newLucidConfidant = state.lucidConfidant;
+      if (state.lucidConfidant?.subtype === "unstable" && state.lucidConfidant.usesLeft <= 0) {
+        externalMsg = "他最终还是提了离职。你已经不记得他用的是哪家猎头了。";
+        newLucidConfidant = null;
+      }
+      setLastBossReaction(externalMsg);
+      if (newLucidConfidant !== state.lucidConfidant) {
+        setState(prev => ({ ...prev, lucidConfidant: newLucidConfidant }));
+      }
 
     const curWeek = state.week;
     if (curWeek % 4 === 1 && curWeek <= 21) {
@@ -1598,21 +2710,43 @@ export default function App() {
       let newScheduled = [...(prev.scheduledEvents || [])];
       let newKpiState = prev.kpiState;
       let newConsecutiveGood = prev.consecutiveGoodMonths || 0;
+      let newKpiBoostMonths = prev.kpiBoostMonths || 0;
+      let newManageUpCount = prev.manageUpCount || 0;
       let newMorale = prev.morale;
+      let kpiTightenMessage = null;
+      
+      const increment = prev.progress - prev.progressLastMonth;
+      const target = 16;
+      
+      if (increment >= target * 1.25) {
+        newKpiBoostMonths += 1;
+        if (newKpiBoostMonths >= 2) {
+          newKpiState = newKpiState === "tight" ? "normal" : newKpiState === "normal" ? "loose" : "loose";
+          newKpiBoostMonths = 0;
+        }
+        newBossTrust = Math.min(10, newBossTrust + 1);
+      } else if (increment < target) {
+        newKpiBoostMonths = 0;
+        if (newKpiState === "loose") {
+          newKpiState = "normal";
+          kpiTightenMessage = "空气开始变了。不明显，但你感觉得到。";
+        } else if (newKpiState === "normal") {
+          newKpiState = "tight";
+          kpiTightenMessage = "他这个月找你谈了两次。语气越来越短。你知道这意味着什么。";
+        }
+        newBossTrust = Math.max(0, newBossTrust - 1);
+      } else {
+        newKpiBoostMonths = Math.max(0, newKpiBoostMonths - 1);
+      }
+      
+      if (newManageUpCount >= 3 && Math.random() < 0.5) {
+        newKpiState = newKpiState === "tight" ? "normal" : newKpiState === "normal" ? "loose" : "loose";
+        newManageUpCount = 0;
+      }
       
       const progressDelta = prev.progress - expectedProgress;
       if (progressDelta >= 10) {
-        newBossTrust = Math.min(10, newBossTrust + 1);
-        newConsecutiveGood += 1;
-        if (newConsecutiveGood >= 2) {
-          newKpiState = newKpiState === "tight" ? "normal" : newKpiState === "normal" ? "loose" : "loose";
-        }
-      } else if (progressDelta < -10) {
-        newBossTrust = Math.max(0, newBossTrust - 1);
-        newConsecutiveGood = 0;
-        newKpiState = newKpiState === "loose" ? "normal" : "tight";
-      } else if (progressDelta >= 0) {
-        newConsecutiveGood = Math.min(newConsecutiveGood + 1, 1);
+        newConsecutiveGood = Math.min(newConsecutiveGood + 1, 2);
       } else {
         newConsecutiveGood = 0;
       }
@@ -1638,11 +2772,33 @@ export default function App() {
         newProgress = Math.max(0, newProgress - clawback);
         newQualityDebt = Math.max(0, newQualityDebt - 20);
         qualityMessage = `月度复盘。你们做的东西摆在那里，没有人说什么。但你注意到，其他组的人路过时会停一下——不是欣赏，是那种"啊，原来可以这样"的表情。你知道那个停顿意味着什么。进度表上，${clawback}%的工作需要返工。`;
-      } else if (prev.qualityDebt >= 30 && !qualityMessage) {
-        qualityMessage = "有人在内部群里发了一条消息：\"我们的标准是这个吗？\"没有人回复。";
-      }
-      setEvent(pickEvent({ ...prev, bossTrust: newBossTrust, budget: newBudget, progress: newProgress, qualityDebt: newQualityDebt, scheduledEvents: newScheduled, kpiState: newKpiState }));
-      return { ...prev, bossTrust: newBossTrust, budget: newBudget, progress: newProgress, morale: newMorale, qualityDebt: newQualityDebt, scheduledEvents: newScheduled, kpiState: newKpiState, consecutiveGoodMonths: newConsecutiveGood };
+       } else if (prev.qualityDebt >= 30 && !qualityMessage) {
+         qualityMessage = "有人在内部群里发了一条消息：\"我们的标准是这个吗？\"没有人回复。";
+       }
+       
+       if (prev.morale < 20) {
+         newBossTrust = Math.max(0, newBossTrust - 2);
+       } else if (prev.morale < 35) {
+         newBossTrust = Math.max(0, newBossTrust - 1);
+       }
+       
+       if (prev.qualityDebt > 50) {
+         prev.quality = Math.max(0, prev.quality - 1);
+       }
+       
+        let bossTrustHitZero = prev.bossTrustHitZero;
+        if (newBossTrust <= 0 && !bossTrustHitZero) {
+          bossTrustHitZero = true;
+          prev.grit = Math.max(0, prev.grit - 3);
+        }
+        
+        let newPeopleHintShown = prev.peopleHintShown;
+        if (prev.people < 3 && !newPeopleHintShown) {
+          newPeopleHintShown = true;
+        }
+        
+        setEvent(pickEvent({ ...prev, bossTrust: newBossTrust, budget: newBudget, progress: newProgress, qualityDebt: newQualityDebt, scheduledEvents: newScheduled, kpiState: newKpiState }));
+        return { ...prev, bossTrust: newBossTrust, budget: newBudget, progress: newProgress, morale: newMorale, qualityDebt: newQualityDebt, scheduledEvents: newScheduled, kpiState: newKpiState, consecutiveGoodMonths: newConsecutiveGood, kpiBoostMonths: newKpiBoostMonths, manageUpCount: newManageUpCount, progressLastMonth: prev.progress, bossTrustHitZero, quality: prev.quality, grit: prev.grit, peopleHintShown: newPeopleHintShown };
     });
     setAnimKey(k => k + 1);
   }, [pickEvent]);
@@ -1653,7 +2809,7 @@ export default function App() {
     setPickedCards([]);
     const years = [2010, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026];
     const marketYear = years[Math.floor(Math.random() * years.length)];
-    setState({ week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust: Math.floor(Math.random() * 6) + 3, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, directionChosen: false, directionDelayPenalty: false, marketYear, companySize: "mid", kpiState: "normal", ipType: "none", ipActive: false, ipProtectUsed: 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, manageUpCount: 0 });
+     setState({ week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust: Math.floor(Math.random() * 6) + 3, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, directionChosen: false, directionDelayPenalty: false, marketYear, companySize: "mid", kpiState: "normal", ipType: "none", ipActive: false, ipProtectUsed: 0, ipProtectCount: 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, honestyHintShown: false, peopleHintShown: false, qualityHintShown: false });
     setWorkMode("normal");
     setOvertimeType("pay");
     setPieCount(0);
@@ -1663,10 +2819,12 @@ export default function App() {
     setShowMonthSummary(false);
     setMonthSummaryData(null);
     setMonthStartProgress(0);
-    setShowResult(false);
-    setEvent(null);
-    setAnimKey(k => k + 1);
-  }, []);
+     setShowResult(false);
+     setEvent(null);
+     setRecruitResultMessage("");
+     setRecruitCandidate(null);
+     setAnimKey(k => k + 1);
+   }, []);
 
   // ---- screens ----
   if (appPhase === "intro") return <IntroScreen onNext={() => setAppPhase("cards")} />;
@@ -1678,28 +2836,56 @@ export default function App() {
   const weeksLeft = TOTAL_WEEKS - state.week;
   const { label: timeLabel } = weekDisplay(state.week);
 
-  if (state.gamePhase === "great_win") return (
+  if (state.gamePhase === "legendary") return (
     <div style={s.app}>
       <div style={s.endWrap}>
-        <div style={{ fontSize: 72 }}>🏆</div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: "#facc15", margin: "12px 0 6px" }}>大获全胜！</div>
+        <div style={{ fontSize: 72 }}>👑</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: "#facc15", margin: "12px 0 6px" }}>传奇制作人</div>
         <div style={{ color: "#acacac", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
         <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
-          你扛住了 <span style={{ color: "#c084fc" }}>{state.survived} 个延期人格</span> 的轮番骚扰，成功把游戏送上线。<br /><br />不仅准时交付，团队士气和老板信任都维持在高位。<br />业内都在讨论这个新项目。<br />老板看你的眼神都不一样了。
+          你扛住了 <span style={{ color: "#c084fc" }}>{state.survived} 个延期人格</span> 的轮番骚扰，成功把游戏送上线。<br /><br />你做到了，而且你知道为什么。
         </div>
         <button onClick={restart} style={s.endBtn}>再来一局</button>
       </div>
     </div>
   );
 
-  if (state.gamePhase === "win") return (
+  if (state.gamePhase === "excellent") return (
+    <div style={s.app}>
+      <div style={s.endWrap}>
+        <div style={{ fontSize: 72 }}>🏆</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: "#a78bfa", margin: "12px 0 6px" }}>优秀制作人</div>
+        <div style={{ color: "#acacac", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
+        <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
+          你扛住了 <span style={{ color: "#c084fc" }}>{state.survived} 个延期人格</span> 的轮番骚扰，成功把游戏送上线。<br /><br />你做到了。有些人知道代价。
+        </div>
+        <button onClick={restart} style={s.endBtn}>再来一局</button>
+      </div>
+    </div>
+  );
+
+  if (state.gamePhase === "profitable") return (
     <div style={s.app}>
       <div style={s.endWrap}>
         <div style={{ fontSize: 72 }}>🎮</div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: "#4ade80", margin: "12px 0 6px" }}>游戏上线了</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: "#4ade80", margin: "12px 0 6px" }}>大赚特赚</div>
         <div style={{ color: "#acacac", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
         <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
-          你扛住了 <span style={{ color: "#c084fc" }}>{state.survived} 个延期人格</span> 的轮番骚扰，成功把游戏送上线。<br /><br />活下来了。你觉得你可以再做一次，做得更好。<br />但没有人问你。
+          你扛住了 <span style={{ color: "#c084fc" }}>{state.survived} 个延期人格</span> 的轮番骚扰，成功把游戏送上线。<br /><br />你做到了。但你不确定值不值得。
+        </div>
+        <button onClick={restart} style={s.endBtn}>再来一局</button>
+      </div>
+    </div>
+  );
+
+  if (state.gamePhase === "average") return (
+    <div style={s.app}>
+      <div style={s.endWrap}>
+        <div style={{ fontSize: 72 }}>📦</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: "#94a3b8", margin: "12px 0 6px" }}>中规中矩</div>
+        <div style={{ color: "#acacac", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
+        <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
+          你扛住了 <span style={{ color: "#c084fc" }}>{state.survived} 个延期人格</span> 的轮番骚扰，成功把游戏送上线。<br /><br />你做到了。但有些东西，活不了。
         </div>
         <button onClick={restart} style={s.endBtn}>再来一局</button>
       </div>
@@ -1710,10 +2896,24 @@ export default function App() {
     <div style={s.app}>
       <div style={s.endWrap}>
         <div style={{ fontSize: 72 }}>💥</div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: "#f87171", margin: "12px 0 6px" }}>差评如潮</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: "#f87171", margin: "12px 0 6px" }}>叫好不叫座</div>
         <div style={{ color: "#acacac", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
         <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
-          上线了。然后你开始看评论区。<br /><br />Bug报告满天飞，玩家愤怒，评分一跌再跌。<br /><br />你关掉手机，决定先睡一觉。<br />明天醒来再说吧。
+          所有人都说这个方向没有未来。<br /><br />你做了，上线了。<br />数据证明他们是对的。<br /><br />你关掉数据分析后台，去喝了一杯酒。
+        </div>
+        <button onClick={restart} style={s.endBtn}>再来一局</button>
+      </div>
+    </div>
+  );
+
+  if (state.gamePhase === "counter_win") return (
+    <div style={s.app}>
+      <div style={s.endWrap}>
+        <div style={{ fontSize: 72 }}>🔥</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: "#f97316", margin: "12px 0 6px" }}>逆势突围</div>
+        <div style={{ color: "#acacac", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
+        <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
+          所有人都说这个方向没有未来。<br /><br />你没有辩解，只是做完了。<br /><br />上线那天，你翻出了当时那个沙龙的聊天记录，没有回复任何人。<br /><br />数据会说话。
         </div>
         <button onClick={restart} style={s.endBtn}>再来一局</button>
       </div>
@@ -1779,17 +2979,35 @@ export default function App() {
     </div>
   );
 
-  const statsRow = (
-    <>
-      <div style={s.statsRow}>
-        <StatBar label="📈 进度" value={state.progress} color="#4ade80" onClick={() => setActiveTip(activeTip === "progress" ? null : "progress")} />
-        <div style={{ width: 10 }} />
-        <StatBar label="💪 士气" value={state.morale} color="#fb923c" onClick={() => setActiveTip(activeTip === "morale" ? null : "morale")} />
-        <div style={{ width: 10 }} />
-        <StatBar label="💰 预算" value={state.budget} color="#60a5fa" onClick={() => setActiveTip(activeTip === "budget" ? null : "budget")} />
-        <div style={{ width: 10 }} />
-        <StatBar label="⭐ 信任" value={state.bossTrust * 10} displayValue={state.bossTrust} color="#facc15" onClick={() => setActiveTip(activeTip === "trust" ? null : "trust")} />
-      </div>
+   const healthTier = getProductHealthTier(getProductHealthScore(state.qualityDebt, state.gameDirection, state.marketYear));
+   const statsRow = (
+     <>
+       <div style={s.statsRow}>
+         <StatBar label="📈 进度" value={state.progress} color="#4ade80" onClick={() => setActiveTip(activeTip === "progress" ? null : "progress")} />
+         <div style={{ width: 10 }} />
+         <StatBar label="💪 士气" value={state.morale} color="#fb923c" onClick={() => setActiveTip(activeTip === "morale" ? null : "morale")} />
+         <div style={{ width: 10 }} />
+         <StatBar label="💰 预算" value={state.budget} color="#60a5fa" onClick={() => setActiveTip(activeTip === "budget" ? null : "budget")} />
+         <div style={{ width: 10 }} />
+         <StatBar label="⭐ 信任" value={state.bossTrust * 10} displayValue={state.bossTrust} color="#facc15" onClick={() => setActiveTip(activeTip === "trust" ? null : "trust")} />
+       </div>
+       <div style={{ padding: "8px 18px", background: "#08080f", borderBottom: "1px solid #0e0e1e", cursor: "pointer" }} onClick={() => setActiveTip(activeTip === "health" ? null : "health")}>
+         <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontFamily: "monospace", color: "#acacac" }}>
+           <span>{healthTier.emoji}</span>
+           <span>产品健康度</span>
+           <span style={{ flex: 1 }} />
+           <span style={{ color: healthTier.tier === "downdown" ? "#f87171" : healthTier.tier === "down" ? "#f97316" : healthTier.tier === "upup" ? "#4ade80" : "#acacac" }}>{healthTier.label}</span>
+           <span>{activeTip === "health" ? "▲" : "▼"}</span>
+         </div>
+       </div>
+       {activeTip === "health" && (
+         <div style={{ background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 8, margin: "-8px 18px 8px", padding: "10px 14px", fontSize: 13, color: "#acacac", fontFamily: "monospace", lineHeight: 1.8 }}>
+           {healthTier.tier === "upup" && <>团队信心足，关怀行动效果 ×1.15</>}
+           {healthTier.tier === "down" && <>方向存疑，关怀效果 ×0.85，事件士气伤害 ×1.1</>}
+           {healthTier.tier === "downdown" && <>信心崩塌，关怀效果 ×0.7，事件士气伤害 ×1.2，每周自然流失 -2</>}
+           {healthTier.tier === "normal" && <>士气韧性正常</>}
+         </div>
+       )}
       {activeTip === "progress" && (
         <div style={{ background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 8, padding: "10px 14px", margin: "-8px 18px 8px", fontSize: 13, color: "#acacac", fontFamily: "monospace", lineHeight: 1.8 }}>
           📈 进度<br />
@@ -1825,17 +3043,49 @@ export default function App() {
           ≥ 8：管理层干预频率降低<br />
           向上管理行动 +1（2AP）· 顺利通过里程碑 +1<br />
           初始值随机（3-8）
-        </div>
-      )}
-    </>
-  );
+         </div>
+       )}
+       <div onClick={() => setTeamPanelExpanded(!teamPanelExpanded)} style={{ padding: "10px 18px", background: "#08080f", borderBottom: "1px solid #0e0e1e", cursor: "pointer" }}>
+         <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontFamily: "monospace", color: "#acacac" }}>
+           <span>👥</span>
+           <span>团队 {state.teamSlots.length}/6</span>
+           <span style={{ flex: 1 }} />
+           <span>{teamPanelExpanded ? "▲" : "▼"}</span>
+         </div>
+       </div>
+       {teamPanelExpanded && state.teamSlots.length > 0 && (
+         <div style={{ background: "#0c0c18", padding: "8px 18px", borderBottom: "1px solid #0e0e1e" }}>
+           {state.teamSlots.map(member => {
+             const arrow = member.contribution.progressEfficiency >= 1.0 ? "↑↑" : member.contribution.progressEfficiency >= 0.7 ? "↑" : "↓";
+             return (
+               <div key={member.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0", fontSize: 13, fontFamily: "monospace", color: "#888" }}>
+                 <span style={{ fontSize: 16 }}>{ROLE_EMOJI[member.role]}</span>
+                 <span style={{ width: 50 }}>{ROLE_NAMES[member.role]}</span>
+                 <span style={{ width: 45, color: "#666" }}>{SENIORITY_NAMES[member.seniority]}</span>
+                 <span style={{ 
+                   color: arrow === "↑↑" ? "#4ade80" : arrow === "↑" ? "#60a5fa" : "#f97316",
+                   fontSize: 14,
+                   fontWeight: "bold"
+                 }}>{arrow}</span>
+               </div>
+             );
+           })}
+         </div>
+       )}
+       {teamPanelExpanded && state.teamSlots.length === 0 && (
+         <div style={{ background: "#0c0c18", padding: "12px 18px", borderBottom: "1px solid #0e0e1e", fontSize: 13, color: "#666", fontFamily: "monospace" }}>
+           团队还没有成员，使用校招或社招加入吧。
+         </div>
+       )}
+     </>
+   );
 
   if (showMonthSummary && monthSummaryData) {
     return (
       <div style={s.app}>
         {header}
         {statsRow}
-         <MonthSummaryCard data={monthSummaryData} bossTrust={state.bossTrust} onNext={dismissMonthSummary} />
+          <MonthSummaryCard data={monthSummaryData} bossTrust={state.bossTrust} people={state.people} peopleHintShown={state.peopleHintShown} onNext={dismissMonthSummary} />
         <style>{`@keyframes floatIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }`}</style>
       </div>
     );
@@ -1848,15 +3098,105 @@ export default function App() {
 
       <div key={animKey} style={s.main}>
         {weekPhase === "planning" ? (
-          <>
-            <div style={{ paddingTop: 16 }}>
-              <WorkModeSelector workMode={workMode} setWorkMode={setWorkMode} overtimeType={overtimeType} setOvertimeType={setOvertimeType} pieCount={pieCount} progress={state.progress} apSpent={apSpent} apBonus={state.apBonusPerWeek||0} />
-              <ActionMenu state={state} workMode={workMode} apSpent={apSpent} setApSpent={setApSpent} setState={setState} freezeDone={freezeDone} setFreezeDone={setFreezeDone} />
-            </div>
+           <>
+             <div style={{ paddingTop: 16 }}>
+               <WorkModeSelector workMode={workMode} setWorkMode={setWorkMode} overtimeType={overtimeType} setOvertimeType={setOvertimeType} pieCount={pieCount} progress={state.progress} apSpent={apSpent} apBonus={state.apBonusPerWeek||0} />
+                <ActionMenu state={state} workMode={workMode} apSpent={apSpent} freezeDone={freezeDone} onAction={takeAction} />
+               
+               {recruitCandidate && (
+                 <div style={{ background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 10, padding: "14px", marginTop: 12 }}>
+                   <div style={{ fontSize: 14, fontWeight: 700, color: "#ddd", marginBottom: 10 }}>
+                     {recruitCandidate.type === "campus" ? "🎓 校招候选人" : "💼 社招候选人"}
+                   </div>
+                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, fontSize: 15 }}>
+                     <span>{ROLE_EMOJI[recruitCandidate.role]}</span>
+                     <span style={{ color: "#ccc" }}>{ROLE_NAMES[recruitCandidate.role]}</span>
+                     <span style={{ color: "#888" }}>·</span>
+                     <span style={{ color: "#888" }}>{SENIORITY_NAMES[recruitCandidate.seniority]}</span>
+                   </div>
+                   {recruitCandidate.tags.map((tag, i) => (
+                     <div key={i} style={{ fontSize: 13, color: "#666", marginLeft: 2 }}>「{tag}」</div>
+                   ))}
+                   <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+                     <button onClick={handleHireCandidate} style={{ flex: 1, padding: "10px 14px", background: "#0d1f0d", border: "1px solid #166534", color: "#4ade80", borderRadius: 8, fontSize: 14, cursor: "pointer" }}>
+                       录用
+                     </button>
+                     <button onClick={handleSkipCandidate} style={{ flex: 1, padding: "10px 14px", background: "#0c0c18", border: "1px solid #2a2a3a", color: "#888", borderRadius: 8, fontSize: 14, cursor: "pointer" }}>
+                       跳过
+                     </button>
+                   </div>
+                 </div>
+               )}
+               
+               {recruitResultMessage && (
+                 <div style={{ background: "#0d1f0d", border: "1px solid #166534", borderRadius: 8, padding: "10px 14px", marginTop: 12, fontSize: 14, color: "#4ade80" }}>
+                   {recruitResultMessage}
+                 </div>
+               )}
+               
+               {layoffPanelOpen && !layoffPendingMember && (
+                 <div style={{ background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 10, padding: "14px", marginTop: 12 }}>
+                   <div style={{ fontSize: 14, fontWeight: 700, color: "#f97316", marginBottom: 10 }}>🚪 选择要清洗的成员</div>
+                   {state.teamSlots.map(member => {
+                     const arrow = member.contribution.progressEfficiency >= 1.0 ? "↑↑" : member.contribution.progressEfficiency >= 0.7 ? "↑" : "↓";
+                     return (
+                       <div key={member.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #1a1a2e" }}>
+                         <span style={{ fontSize: 18 }}>{ROLE_EMOJI[member.role]}</span>
+                         <span style={{ flex: 1, fontSize: 14, color: "#ccc" }}>{ROLE_NAMES[member.role]}</span>
+                         <span style={{ fontSize: 13, color: "#666" }}>{SENIORITY_NAMES[member.seniority]}</span>
+                         <span style={{ 
+                           color: arrow === "↑↑" ? "#4ade80" : arrow === "↑" ? "#60a5fa" : "#f97316",
+                           fontSize: 14,
+                           fontWeight: "bold",
+                           width: 25
+                         }}>{arrow}</span>
+                         <button onClick={() => handleRequestLayoffConfirm(member)} style={{ padding: "6px 12px", background: "#2d0a0a", border: "1px solid #7f1d1d", color: "#f87171", borderRadius: 6, fontSize: 12, cursor: "pointer" }}>
+                           清洗
+                         </button>
+                       </div>
+                     );
+                   })}
+                   <button onClick={() => setLayoffPanelOpen(false)} style={{ width: "100%", marginTop: 12, padding: "10px 14px", background: "#0c0c18", border: "1px solid #2a2a3a", color: "#888", borderRadius: 8, fontSize: 14, cursor: "pointer" }}>
+                     取消
+                   </button>
+                 </div>
+               )}
+               
+               {layoffPendingMember && (
+                 <div style={{ background: "#1a1212", border: "1px solid #2a1a1a", borderRadius: 10, padding: "14px", marginTop: 12 }}>
+                   <div style={{ fontSize: 15, fontWeight: 700, color: "#f87171", marginBottom: 8 }}>⚠️ 确认清洗</div>
+                   <div style={{ fontSize: 14, color: "#acacac", lineHeight: 1.7, marginBottom: 14 }}>
+                     确认清洗这名成员？此操作不可逆。
+                     <div style={{ marginTop: 8, fontSize: 13, color: "#888" }}>
+                       {ROLE_EMOJI[layoffPendingMember.role]} {ROLE_NAMES[layoffPendingMember.role]} · {SENIORITY_NAMES[layoffPendingMember.seniority]}
+                     </div>
+                   </div>
+                   <div style={{ display: "flex", gap: 10 }}>
+                     <button onClick={handleConfirmLayoff} style={{ flex: 1, padding: "10px 14px", background: "#2d0a0a", border: "1px solid #7f1d1d", color: "#f87171", borderRadius: 8, fontSize: 14, cursor: "pointer" }}>
+                       确认
+                     </button>
+                     <button onClick={handleCancelLayoffConfirm} style={{ flex: 1, padding: "10px 14px", background: "#0c0c18", border: "1px solid #2a2a3a", color: "#888", borderRadius: 8, fontSize: 14, cursor: "pointer" }}>
+                       取消
+                     </button>
+                   </div>
+                 </div>
+               )}
+               
+               {layoffConfirmMember && (
+                 <div style={{ background: "#1a1212", border: "1px solid #2a1a1a", borderRadius: 10, padding: "14px", marginTop: 12 }}>
+                   <div style={{ fontSize: 14, color: "#acacac", lineHeight: 1.7 }}>
+                     他离开了。没有人说什么。
+                   </div>
+                   <button onClick={handleCloseLayoffResult} style={{ width: "100%", marginTop: 12, padding: "10px 14px", background: "#0c0c18", border: "1px solid #2a2a3a", color: "#888", borderRadius: 8, fontSize: 14, cursor: "pointer" }}>
+                     继续
+                   </button>
+                 </div>
+               )}
+             </div>
             <div style={{ marginTop: 16 }}>
               {apLeft > 0 && (
                 <div style={{ fontSize: 12, color: "#acacac", fontFamily: "monospace", marginBottom: 8 }}>
-                  你还有 {apLeft} AP 未使用，确认后将消失。
+                  你还有 {apLeft} AP 未使用，它们不会被累积到下一周。
                 </div>
               )}
               <button onClick={() => setWeekPhase("event")}
@@ -1903,42 +3243,60 @@ export default function App() {
                   </button>
                 ) : !showResult ? (
                  <div style={s.choices}>
-                    {(() => {
-                      const isMilestone = MILESTONE_EVENTS.some(m => m.name === event?.name);
-                      const isLucidP2 = event?.id === "lucid_p2";
-                      const isManpower = event?.id === "manpower";
-                      const isHireReveal = event?.id === "hire_reveal";
-                      
-                      let choices;
-                      let getOptionLabel;
-                      let displayDialogue = event.dialogue;
-                      let hireResult = null;
-                      
-                      if (isLucidP2) {
-                        const phase1 = state.lucidPhase1;
-                        choices = [LUCID_P2_CHOICES.A, LUCID_P2_CHOICES.B];
-                        if (phase1 === "B") choices.push(LUCID_P2_CHOICES.C);
-                        getOptionLabel = (i) => ["A", "B", "C"][i];
-                      } else if (isManpower) {
-                        choices = [...event.choices];
-                        let optionC = null;
-                        if (state.budget > 60) {
-                          optionC = { text: "我们投工具提效，不加人", effects: { progress: 3, morale: 0, budget: -15 }, result: "他皱了皱眉，但接受了。你把预算投进了自动化工具。", action: "refuse" };
-                        } else if (state.morale > 70) {
-                          optionC = { text: "团队状态很好，我来推动冲刺", effects: { progress: 5, morale: -12, budget: 0 }, result: "他半信半疑。团队知道了，士气开始消耗。", action: "refuse" };
-                        } else {
-                          const expectedProgress = (state.week / 24) * 100;
-                          if (state.progress > expectedProgress + 10) {
-                            optionC = { text: "进度没有问题，数据在这里", effects: { progress: 0, morale: 0, budget: 0 }, result: "他看了数据，没说话，挥了挥手让你走。老板记住了这件事。", action: "refuse" };
+                     {(() => {
+                       const isMilestone = MILESTONE_EVENTS.some(m => m.name === event?.name);
+                       const isLucidP2 = event?.id === "lucid_p2";
+                       const isManpower = event?.id === "manpower";
+                       const isBrooksLaw = event?.id === "brooks_law";
+                       const isParatrooper = event?.id === "paratrooper";
+                       const isHireReveal = event?.id === "hire_reveal";
+                       
+                       let choices;
+                       let getOptionLabel;
+                       let displayDialogue = event.dialogue;
+                       let hireResult = null;
+                       
+                       if (isLucidP2) {
+                         const phase1 = state.lucidPhase1;
+                         choices = [LUCID_P2_CHOICES.A, LUCID_P2_CHOICES.B];
+                         if (phase1 === "B") choices.push(LUCID_P2_CHOICES.C);
+                         getOptionLabel = (i) => ["A", "B", "C"][i];
+                        } else if (isManpower || isBrooksLaw || isParatrooper) {
+                          choices = [...event.choices];
+                          if (isManpower) {
+                            let optionC = null;
+                            if (state.budget > 60) {
+                              optionC = { text: "我们投工具提效，不加人", effects: { progress: 3, morale: 0, budget: -15 }, result: "他皱了皱眉，但接受了。你把预算投进了自动化工具。", action: "refuse" };
+                            } else if (state.morale > 70) {
+                              optionC = { text: "团队状态很好，我来推动冲刺", effects: { progress: 5, morale: -12, budget: 0 }, result: "他半信半疑。团队知道了，士气开始消耗。", action: "refuse" };
+                            } else {
+                              const expectedProgress = (state.week / 24) * 100;
+                              if (state.progress > expectedProgress + 10) {
+                                optionC = { text: "进度没有问题，数据在这里", effects: { progress: 0, morale: 0, budget: 0 }, result: "他看了数据，没说话，挥了挥手让你走。老板记住了这件事。", action: "refuse" };
+                              }
+                            }
+                            if (optionC) {
+                              choices.push(optionC);
+                            }
                           }
-                        }
-                        if (optionC) {
-                          choices.push(optionC);
-                          getOptionLabel = (i) => ["A", "B", "C"][i];
-                        } else {
-                          getOptionLabel = (i) => ["A", "B"][i];
-                        }
-                       } else if (isHireReveal) {
+                          if (state.ipType === "strong" && state.ipProtectCount > 0) {
+                            choices.push({
+                              text: "IP方介入",
+                              effects: {},
+                              result: "你的手机震了一下。是IP方的法务。他们发来一封邮件，措辞非常礼貌，意思非常明确：这个项目的资源不能动。你第一次感谢一份律师函。",
+                              action: "ipProtect",
+                            });
+                          }
+                          
+                          if (state.industryBackground) {
+                            const industryChoices = getIndustryBackgroundChoices(event.id, state.industryBackground);
+                            if (industryChoices) {
+                              choices.push({ ...industryChoices, isIndustryBackground: true });
+                            }
+                          }
+                          
+                           getOptionLabel = (i) => ["A", "B", "C", "D"][i];
+                        } else if (isHireReveal) {
                          const roll = Math.random();
                          let type;
                          if (roll < 0.25) type = "god";
@@ -1972,14 +3330,22 @@ export default function App() {
                          }
                          getOptionLabel = (i) => hopeless ? ["B", "C"][i] : hasData ? ["A", "B"][i] : ["B"][i];
                        } else {
-                        choices = [...(event.choices || [])];
-                        if (isMilestone && state.lucidConfidant?.subtype === "inner") {
-                          choices.push({ text: "问问他，上面到底想看到什么", effects: { progress: -2, morale: 0, budget: 0 }, result: "" });
-                          getOptionLabel = (i) => ["A", "B", "C", "D"][i];
-                        } else {
-                          getOptionLabel = (i) => isMilestone ? ["A", "B", "C"][i] : null;
-                        }
-                      }
+                         choices = [...(event.choices || [])];
+                         
+                         if (state.industryBackground) {
+                           const industryChoices = getIndustryBackgroundChoices(event.id, state.industryBackground);
+                           if (industryChoices) {
+                             choices.push({ ...industryChoices, isIndustryBackground: true });
+                           }
+                         }
+                         
+                         if (isMilestone && state.lucidConfidant?.subtype === "inner") {
+                           choices.push({ text: "问问他，上面到底想看到什么", effects: { progress: -2, morale: 0, budget: 0 }, result: "" });
+                           getOptionLabel = (i) => ["A", "B", "C", "D"][i];
+                         } else {
+                           getOptionLabel = (i) => isMilestone ? ["A", "B", "C"][i] : null;
+                         }
+                       }
                       
                       if (isHireReveal && displayDialogue) {
                         return (
@@ -2003,25 +3369,38 @@ export default function App() {
                           }
                         }
                         
-                        return (
-                          <button key={i} onClick={() => handleChoice(c, isMilestone || isLucidP2 || isManpower ? getOptionLabel(i) : i)} disabled={disabled} style={{ ...s.choiceBtn, opacity: disabled ? 0.4 : 1, cursor: disabled ? "not-allowed" : "pointer" }}
-                            onMouseEnter={e => !disabled && (e.currentTarget.style.borderColor = event.color, e.currentTarget.style.background = `${event.color}0a`)}
-                            onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e1e2e"; e.currentTarget.style.background = "#0c0c18"; }}>
-                            <div>
-                              <div style={{ display: "flex", alignItems: "flex-start" }}>
-                                {getOptionLabel(i) && <span style={{ color: event.color, marginRight: 8, fontFamily: "monospace", fontSize: 13, flexShrink: 0 }}>{getOptionLabel(i)}.</span>}
-                                <span>{c.text}{disableReason}</span>
-                              </div>
-                              <ChoicePreview effects={c.effects} progressBonus={(state.progressBonus || 0) + WORK_MODES[workMode].progressBonus + (state.progressMomentum || 0)} />
-                            </div>
+                         return (
+                           <button key={i} onClick={() => handleChoice(c, isMilestone || isLucidP2 || isManpower ? getOptionLabel(i) : i)} disabled={disabled} style={{ ...s.choiceBtn, opacity: disabled ? 0.4 : 1, cursor: disabled ? "not-allowed" : "pointer", borderColor: c.isIndustryBackground ? "#2d1f50" : s.choiceBtn.borderColor }}
+                             onMouseEnter={e => !disabled && (e.currentTarget.style.borderColor = c.isIndustryBackground ? "#a78bfa" : event.color, e.currentTarget.style.background = c.isIndustryBackground ? "#1a1030" : `${event.color}0a`)}
+                             onMouseLeave={e => { e.currentTarget.style.borderColor = c.isIndustryBackground ? "#2d1f50" : "#1e1e2e"; e.currentTarget.style.background = "#0c0c18"; }}>
+                             <div>
+                               <div style={{ display: "flex", alignItems: "flex-start" }}>
+                                 {getOptionLabel(i) && <span style={{ color: event.color, marginRight: 8, fontFamily: "monospace", fontSize: 13, flexShrink: 0 }}>{getOptionLabel(i)}.</span>}
+                                 <span style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                   {c.text}{disableReason}
+                                   {c.isIndustryBackground && <span style={{ fontSize: 11, color: "#a78bfa", fontFamily: "monospace", padding: "1px 5px", background: "#1a1030", borderRadius: 4, border: "1px solid #2d1f50" }}>[背景]</span>}
+                                 </span>
+                               </div>
+                               <ChoicePreview effects={c.effects} progressBonus={(state.progressBonus || 0) + WORK_MODES[workMode].progressBonus + (state.progressMomentum || 0)} />
+                             </div>
                           </button>
                         );
                       });
                     })()}
                  </div>
-                ) : (
+                 ) : (
                  <div style={s.result}>
                    <div style={{ fontSize: 15, color: "#bbb", lineHeight: 1.7, marginBottom: 10 }}>{lastResult}</div>
+                   {!state.honestyHintShown && state.honesty < 3 && event && MILESTONE_EVENTS.some(m => event.name === m.name) && (
+                     <div style={{ fontSize: 12, color: "#9ca3af", fontStyle: "italic", marginTop: 10, marginBottom: 8, paddingTop: 8, borderTop: "1px solid #1a1a2e" }}>
+                       「你在会议上越来越熟练了。熟练到有时候你自己也分不清，哪些是真的，哪些是说出来的。」
+                     </div>
+                   )}
+                   {!state.qualityHintShown && state.quality < 3 && event && !MILESTONE_EVENTS.some(m => event.name === m.name) && event.id !== "boss_talk" && (
+                     <div style={{ fontSize: 12, color: "#9ca3af", fontStyle: "italic", marginTop: 10, marginBottom: 8, paddingTop: 8, borderTop: "1px solid #1a1a2e" }}>
+                       「有人在内网发了一篇匿名帖：『这个游戏的核心玩法，你自己玩过吗？』没有人回复。帖子第二天被删了。」
+                     </div>
+                   )}
                    {lastConfidantReveal && (
                      <div style={{ fontSize: 13, color: "#a78bfa", fontFamily: "monospace", paddingTop: 8, borderTop: "1px solid #1a1a2e", marginTop: 2, marginBottom: 8 }}>
                        🤝 {lastConfidantReveal}

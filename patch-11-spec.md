@@ -179,6 +179,28 @@ qualityDebt < 40：
 
 ---
 
+## 事件分类标签
+
+### 管理层干预类（KPI tight时权重+30%，KPI loose时权重-30%）
+```
+corp_kpi / corp_approval / kpi_review / manpower / bet_deal / market_trend /
+thunder / zombie_reveal / water_reveal / stock_trap / blamer / quitter /
+brooks_law / paratrooper / meeting / firefighter
+```
+
+### 创意类（KPI loose时权重+30%，KPI tight时权重-30%）
+```
+dreamer / impulse / castle / visionary / cowboy / legacy /
+perfectionist / preacher / lucid_p1
+```
+
+### 不参与权重调整（固定触发）
+```
+trust_decay_hidden_progress / trust_decay_promise_broken / hire_reveal
+```
+
+---
+
 ## 接入说明
 
 - KPI事件池权重调整：在现有事件抽取逻辑中，读取 `kpiState` 对对应事件类型的权重做±30%修正
