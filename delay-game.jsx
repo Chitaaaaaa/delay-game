@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 
 const TOTAL_WEEKS = 24;
-const BASE_PROGRESS = 3;
+const BASE_PROGRESS = 1;
 
 function weekDisplay(week) {
   const month = Math.ceil(week / 4);
@@ -15,6 +15,12 @@ function getWeeklyBudgetDrain(month) {
   if (month <= 2) return 2;
   if (month <= 4) return 4;
   return 6;
+}
+
+function getKpiBudgetMultiplier(kpiState) {
+  if (kpiState === "tight") return 1.3;
+  if (kpiState === "loose") return 0.9;
+  return 1.0;
 }
 
 function getMoraleEfficiency(morale) {
@@ -95,7 +101,7 @@ function calcPiePenalty(mode, pieCount, progress) {
 
 const CARD_GROUPS = [
   {
-    title: "这家公司是……",
+    title: "你觉得这家公司是……",
     cards: [
       { id: "big",   emoji: "🏢", label: "大厂",   reveal: "预算充裕+30，但大公司病如影随形，士气-10",   init: s => ({ ...s, budget: Math.min(130, s.budget + 30), morale: Math.max(10, s.morale - 10) }) },
       { id: "mid",   emoji: "🏬", label: "中型公司", reveal: "一切正常，平衡起点",                        init: s => s },
@@ -118,7 +124,7 @@ const CARD_GROUPS = [
           { id: 'v1', role: 'engineer', seniority: 'veteran', source: 'initial', contribution: { progressEfficiency: 1.1, moraleBase: 5, budgetCoeff: 1.0 } },
           { id: 'v2', role: 'designer', seniority: 'veteran', source: 'initial', contribution: { progressEfficiency: 1.0, moraleBase: 5, budgetCoeff: 1.0 } },
           { id: 'v3', role: 'qa',       seniority: 'veteran', source: 'initial', contribution: { progressEfficiency: 0.9, moraleBase: 5, budgetCoeff: 0.9 } },
-          { id: 'v4', role: 'producer', seniority: 'veteran', source: 'initial', contribution: { progressEfficiency: 1.0, moraleBase: 5, budgetCoeff: 1.0 } },
+          { id: 'v4', role: 'qa', seniority: 'veteran', source: 'initial', contribution: { progressEfficiency: 1.0, moraleBase: 5, budgetCoeff: 1.0 } },
         ]}) },
       { id: "fresh", emoji: "🆕", label: "新团队", reveal: "士气-15，2名新人，前4周效率7折",
         init: s => ({ ...s, morale: Math.max(10, s.morale - 15), teamSlots: [
@@ -135,7 +141,7 @@ const CARD_GROUPS = [
           return { ...s, ...bonus, teamSlots: [
             { id: 'm1', role: 'engineer', seniority: 'veteran', source: 'initial', contribution: { progressEfficiency: 1.0, moraleBase: 3, budgetCoeff: 1.0 } },
             { id: 'm2', role: 'designer', seniority: 'veteran', source: 'initial', contribution: { progressEfficiency: 1.0, moraleBase: 3, budgetCoeff: 1.0 } },
-            { id: 'm3', role: 'other', seniority: 'fresh', source: 'initial', contribution: { progressEfficiency: 0.8, moraleBase: 2, budgetCoeff: 0.8 }, weeksJoined: 0 },
+            { id: 'm3', role: 'qa', seniority: 'fresh', source: 'initial', contribution: { progressEfficiency: 0.8, moraleBase: 2, budgetCoeff: 0.8 }, weeksJoined: 0 },
           ]};
         }},
     ]
@@ -188,7 +194,7 @@ function buildInitialState(pickedCards) {
     ipActive = true;
   }
   
-  let s = { week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust: Math.floor(Math.random() * 6) + 3, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, directionChosen: false, directionDelayPenalty: false, marketYear, companySize, kpiState: "normal", ipType, ipActive, ipProtectUsed: 0, ipProtectCount: ipType === "strong" ? 2 : 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, honestyHintShown: false, peopleHintShown: false, qualityHintShown: false };
+  let s = { week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust: Math.floor(Math.random() * 6) + 3, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, directionChosen: false, directionDelayPenalty: false, marketYear, companySize, kpiState: "normal", ipType, ipActive, ipProtectUsed: 0, ipProtectCount: ipType === "strong" ? 2 : 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, honestyHintShown: false, peopleHintShown: false, qualityHintShown: false, usedActions: [], lastManageUpResult: null };
   for (const card of pickedCards) { if (card) s = card.init(s); }
   return s;
 }
@@ -220,13 +226,32 @@ const ROLE_EMOJI = {
   other: "🧩"
 };
 
-function getTeamProgressCoeff(slots) {
+function getTeamProgressCoeff(slots, gameDirection) {
   const count = slots.length;
-  if (count >= 4) return 1.0;
-  if (count === 3) return 0.85;
-  if (count === 2) return 0.65;
-  if (count === 1) return 0.4;
-  return 0;
+  const profile = gameDirection ? DIRECTION_TEAM_SCALE[gameDirection] : null;
+
+  if (!profile) {
+    if (count >= 4) return 1.0;
+    if (count === 3) return 0.85;
+    if (count === 2) return 0.65;
+    if (count === 1) return 0.4;
+    return 0;
+  }
+
+  if (count === 0) return 0;
+  if (count === profile.sweetSpot) return 1.0;
+
+  if (count < profile.sweetSpot) {
+    const gap = profile.sweetSpot - count;
+    return Math.max(0.3, 1.0 - gap * 0.2);
+  }
+
+  if (count > profile.sweetSpot) {
+    const excess = count - profile.sweetSpot;
+    return Math.max(0.7, 1.0 - excess * 0.1);
+  }
+
+  return 1.0;
 }
 
 function getDirectionMismatchPenalty(gameDirection, marketYear) {
@@ -251,21 +276,21 @@ function getProductHealthTier(score) {
 }
 
 const ACTIONS = [
-  { id: "push",    emoji: "🔨", label: "冲进度",   ap: 1, desc: "进度+3  士气-4",        always: true,
+  { id: "push",    emoji: "🔨", label: "冲进度",   ap: 2, desc: "进度+10  士气-4",        always: true,
     available: s => s.teamSlots.length > 0,
-    apply: s => { const base = 3 * getTeamProgressCoeff(s.teamSlots) * getMoraleEfficiency(s.morale); return { ...s, progress: Math.min(100, s.progress + Math.floor(base)), morale: Math.max(0, s.morale - 4) }; } },
-  { id: "care",    emoji: "💬", label: "团队关怀",  ap: 1, desc: "士气+10",              always: true,
+    apply: s => ({ ...s, progress: Math.min(100, s.progress + 10), morale: Math.max(0, s.morale - 4) }) },
+  { id: "care",    emoji: "💬", label: "团队关怀",  ap: 1, desc: "士气+5",              always: true,
     available: () => true,
     apply: s => {
-      let moraleGain = getTeamComfortEffect(s.teamComfortCount);
+      let moraleGain = 5;
       if (s.industryBackground === "education") moraleGain = Math.round(moraleGain * 1.3);
       if (s.industryBackground === "finance") moraleGain = Math.round(moraleGain * 0.7);
       if (s.industryBackground === "blockchain") moraleGain = Math.round(moraleGain * 0.6);
       return { ...s, morale: Math.min(100, s.morale + moraleGain), teamComfortCount: s.teamComfortCount + 1 };
     } },
-  { id: "comfort", emoji: "🆘", label: "危机安抚",  ap: 2, desc: "士气+25（士气<35时）",   always: false,
+  { id: "comfort", emoji: "🆘", label: "危机安抚",  ap: 2, desc: "士气+10（士气<35时）",   always: false,
     available: s => s.morale < 35,
-    apply: s => ({ ...s, morale: Math.min(100, s.morale + getCrisisComfortEffect(s.crisisComfortCount)), crisisComfortCount: s.crisisComfortCount + 1 }) },
+    apply: s => ({ ...s, morale: Math.min(100, s.morale + 10), crisisComfortCount: s.crisisComfortCount + 1 }) },
   { id: "finance", emoji: "💸", label: "紧急融资",  ap: 3, desc: "预算+18~32（预算<25时）", always: false,
     available: s => s.budget < 25,
     apply: s => {
@@ -309,12 +334,18 @@ const ACTIONS = [
   { id: "verify", emoji: "🔎", label: "深入验收", ap: 2, desc: "解锁本月 milestone B 选项（看原始 build）", always: false,
     available: (s, ctx) => ctx.isMonthEnd && !s.verifyUsedThisMonth,
     apply: s => ({ ...s, verifyUsedThisMonth: true }) },
-  { id: "manage_up", emoji: "☕", label: "向上管理", ap: 2, desc: "老板信任度+1，累计3次可缓解KPI", always: true,
+  { id: "manage_up", emoji: "☕", label: "向上管理", ap: 2, desc: "老板信任度±1（概率）", always: true,
     available: s => s.bossTrust < 10,
     apply: s => {
-      let trustGain = 1;
-      if (s.industryBackground === "mcn") trustGain = 2;
-      return { ...s, bossTrust: Math.min(10, s.bossTrust + trustGain), manageUpCount: (s.manageUpCount || 0) + 1 };
+      const successRate = s.bossTrust >= 7 ? 0.75 : s.bossTrust <= 3 ? 0.50 : 0.65;
+      const success = Math.random() < successRate;
+      const trustGain = success ? 1 : -1;
+      return {
+        ...s,
+        bossTrust: Math.max(0, Math.min(10, s.bossTrust + trustGain)),
+        manageUpCount: (s.manageUpCount || 0) + 1,
+        lastManageUpResult: success ? "success" : "fail",
+      };
     } },
 ];
 
@@ -456,7 +487,7 @@ const MANPOWER_EVENT = {
   dialogue: "「开发速度一定要快。不行就加人。HR那边准备了一批简历。\n你来定，招多少都行。\n对了，我有几个推荐的候选人你看一下，都是很不错的人。」\n\n你看了一眼他发来的名单。",
   choices: [
     { text: "好，全部招进来", effects: { progress: -5, morale: -5, budget: 15 }, result: "老板很满意，给你批了额外的预算作为补充。HR开始批量面试。你看着那份推荐名单，把它夹进了文件里。", action: "large" },
-    { text: "人不是越多越好，我只招2个关键岗位", effects: { progress: 5, morale: 5, budget: 0 }, result: "老板接受了你的精打细算。你花了点政治资本，至少把规模压下来了。", action: "small" },
+    { text: "人不是越多越好，我只招2个关键岗位", effects: { progress: 5, morale: 5, budget: 0, qualityDebt: 5 }, result: "老板接受了你的精打细算。你花了点政治资本，至少把规模压下来了。", action: "small" },
   ],
 };
 
@@ -506,9 +537,9 @@ const EVENTS = [
     id: "impulse", name: "灵机一动", emoji: "💡", color: "#fbbf24",
     tagline: "「我最近玩了一个这个，我们也加一下」",
     situation: "灵机一动冲进办公室，手机屏幕冲你晃：",
-    dialogue: "我最近在玩《新鬼》，好可爱！我们也做一个向导角色！还有《白寓言》的变身机制！都加上吧！",
+    dialogue: "我最近在玩《原X》，好可爱！我们也做一个向导角色！还有《白神话》的变身机制！都加上吧！",
     choices: [
-      { text: "好！美术程序都动起来！",  effects: { progress: 0, morale: -10, budget: 10 }, result: "美术组和程序组加班加点，团队疲惫不堪。但你们折腾出来的效果为你们换到了一笔预算。" },
+      { text: "好！美术程序都动起来！",  effects: { progress: 0, morale: -10, budget: 10, qualityDebt: 8 }, result: "美术组和程序组加班加点，团队疲惫不堪。但你们折腾出来的效果为你们换到了一笔预算。" },
       { text: "做个可行性评估",          effects: { progress: 0, morale:   0, budget:  -5 }, result: "结论：都不可行。浪费了点时间和钱，但总比全做强。" },
       { text: "我们有自己的方向，专注",  effects: { progress:  3, morale: -10, budget:   0 }, result: "他有点受伤，但项目没偏轨。" },
     ]
@@ -521,7 +552,7 @@ const EVENTS = [
     choices: [
       { text: "好，全员停下来做Demo",    effects: { progress: -8, morale:  -5, budget:  25, qualityDebt: 20 }, result: "预算到手了。核心问题被埋进去，以后会爆的。" },
       { text: "据理力争拒绝",            effects: { progress:  2, morale:   5, budget: -15 }, result: "预算缩水了，但进度和士气都保住了。" },
-      { text: "把现有进度包装成Demo",    effects: { progress: -2, morale:   5, budget:  10 }, result: "小聪明发挥了作用，上面暂时满意了。" },
+      { text: "把现有进度包装成Demo",    effects: { progress: -2, morale:   5, budget:  10, qualityDebt: 8 }, result: "小聪明发挥了作用，上面暂时满意了。" },
     ]
   },
   {
@@ -530,9 +561,9 @@ const EVENTS = [
     situation: "空降的这位执行制作人听说是老板花了大价钱挖来的，他在全员会议上笑着说：",
     dialogue: "大家好！我是新来的执行制作人，会辅助制作人把这个内容做好。我觉得你们做得挺好的，会尽量不动大家的东西。对了，我只是有一些小小的方向性调整……",
     choices: [
-      { text: "当然！洗耳恭听！",          effects: { progress: -8, morale:   -8, budget:  10 }, result: "「小小调整」= 三个月白干，方向大变。士气大受挫败，但上面很满意新的效果，批了更多预算。" },
+      { text: "当然！洗耳恭听！",          effects: { progress: -8, morale:   -8, budget:  10, qualityDebt: 15 }, result: "「小小调整」= 三个月白干，方向大变。士气大受挫败，但上面很满意新的效果，批了更多预算。" },
       { text: "先完成当前里程碑再谈",       effects: { progress:  10, morale:  0, budget:   0 }, result: "争取到了缓冲期。但他记住这事了。从此看你的眼神都多了三分敌意。" },
-      { text: "邀请他深入了解实际现状",     effects: { progress: 5, morale:  5, budget:  0 }, result: "他理解了现状，后来的调整合理了很多。团队觉得你会办事。" },
+      { text: "邀请他深入了解实际现状",     effects: { progress: 5, morale:  5, budget:  0, qualityDebt: 5 }, result: "他理解了现状，后来的调整合理了很多。团队觉得你会办事。" },
     ]
   },
   {
@@ -565,7 +596,7 @@ const EVENTS = [
     choices: [
       { text: "以大局为重，送人",          effects: { progress: -10, morale: -12, budget:   0 }, result: "美术全走了。三个月的空档期，损失惨重。" },
       { text: "据理力争，只给20%",          effects: { progress:  -4, morale:  -5, budget:  -5 }, result: "谈判部分成功，损失减半，花了点政治资本。" },
-      { text: "换延期批复+资源补偿",        effects: { progress:  -2, morale:  -3, budget:  12 }, result: "批了延期，补了点预算。进度算保住了。" },
+      { text: "换延期批复+资源补偿",        effects: { progress:  -2, morale:  -3, budget:  12, qualityDebt: 5 }, result: "批了延期，补了点预算。进度算保住了。" },
     ]
   },
   {
@@ -576,7 +607,7 @@ const EVENTS = [
     choices: [
       { text: "升职加薪挽留！",          effects: { progress:  2, morale:   8, budget: -18 }, result: "他留下来了，进度也稳了。但钱花出去了，心还没完全回来。" },
       { text: "祝福他，认真做好交接",    effects: { progress: -4, morale:  -3, budget:  -5 }, result: "交接花了三周，新人熟悉又花了一个月。人走了，活儿耽误了。" },
-      { text: "给他批一个月调整假",      effects: { progress: -2, morale:  15, budget: -10 }, result: "他回来了，状态超好。团队对你刮目相看。" },
+      { text: "给他批一个月调整假",      effects: { progress: -2, morale:  15, budget: -10, qualityDebt: 8 }, result: "他回来了，状态超好。团队对你刮目相看。" },
     ]
   },
   {
@@ -596,7 +627,7 @@ const EVENTS = [
     situation: "主美做完了一个月的UI给你看效果：",
     dialogue: "制作人！我把界面全重新设计了！沉浸式无UI风格超酷！哦对了，你要的功能界面……我还没做。",
     choices: [
-      { text: "哇好酷！就用这个！",            effects: { progress: -6, morale:  15, budget:  -8 }, result: "测试时玩家找不到任何功能在哪。又重做了。主美很开心。" },
+      { text: "哇好酷！就用这个！",            effects: { progress: -6, morale:  15, budget:  -8, qualityDebt: 5 }, result: "测试时玩家找不到任何功能在哪。又重做了。主美很开心。" },
       { text: "先完成需求，创意留下个版本",    effects: { progress:  4, morale: -12, budget:   0 }, result: "主美不开心，但需求按时交付了。" },
       { text: "保留方向但加基础UI引导",        effects: { progress: -2, morale:   5, budget:  -5 }, result: "折中方案，视觉和可用性都保住了。" },
     ]
@@ -631,7 +662,7 @@ const EVENTS = [
     choices: [
       { text: "全参加！保持信息同步！",          effects: { progress: -5, morale:   8, budget:   0 }, result: "参加了所有会议。什么正事都没做。但大家觉得你很投入。" },
       { text: "只参关键会，其余授权组长",        effects: { progress:  1, morale:  -3, budget:   0 }, result: "关键信息没丢，大半时间找回来了。组长有点压力。" },
-      { text: "推行异步更新机制，减少会议",      effects: { progress:  3, morale:  -8, budget:  -8 }, result: "效率上来了，但有人不适应，需要磨合成本。" },
+      { text: "推行异步更新机制，减少会议",      effects: { progress:  3, morale:  -8, budget:  -8, qualityDebt: 3 }, result: "效率上来了，但有人不适应，需要磨合成本。" },
     ]
   },
   {
@@ -642,7 +673,7 @@ const EVENTS = [
     choices: [
       { text: "停工等待恢复",                effects: { progress: -8, morale:   8, budget:   0 }, result: "恢复后大家很有精神。两周白过了。" },
       { text: "能做什么做什么",              effects: { progress: -3, morale:  -5, budget:  -5 }, result: "效率减半，但至少在推进。大家都很累。" },
-      { text: "租云端开发环境保效率",        effects: { progress: -1, morale:  10, budget: -18 }, result: "花了不少钱，开发基本没停。团队很感激。" },
+      { text: "租云端开发环境保效率",        effects: { progress: -1, morale:  10, budget: -18, qualityDebt: 8 }, result: "花了不少钱，开发基本没停。团队很感激。" },
     ]
   },
   // For pendingEvents trigger only
@@ -654,7 +685,7 @@ const EVENTS = [
     choices: [
       { text: "召集团队重新对齐真实进度", effects: { progress: -8, morale: -5, budget: 0, bossTrust: 1 }, result: "会议上你当众指出了问题。有人沉默，有人低头。气氛很糟，但你终于知道自己在哪里。" },
       { text: "私下找主程重新评估",        effects: { progress: -5, morale:  0, budget: -5, qualityDebt: 15 }, result: "花了两天重新盘了一遍。数字调小了。只有你们两个人知道。" },
-      { text: "默默调整内心预期",          effects: { progress: -3, morale:  3, budget:  0 }, result: "你一个人坐着，把进度表里几个数字改小了。没有人知道。你也不确定这样做对不对。" },
+      { text: "默默调整内心预期",          effects: { progress: -3, morale:  3, budget:  0, qualityDebt: 5 }, result: "你一个人坐着，把进度表里几个数字改小了。没有人知道。你也不确定这样做对不对。" },
     ]
   },
   // ---- 大公司病 ----
@@ -664,7 +695,7 @@ const EVENTS = [
     situation: "HR发来通知：",
     dialogue: "本季度OKR填报截止今日。格式要求：17栏Excel，需要部门主管、技术Lead、项目负责人三方签字，上传至内网OA系统（注意：OA系统今天维护，需等下午三点后上传）。",
     choices: [
-      { text: "全员认真填，合规为上",        effects: { progress: -3, morale:  -8, budget:   0 }, result: "规规矩矩填完了。团队花了整整一天半。没有一个字会被人看到。" },
+      { text: "全员认真填，合规为上",        effects: { progress: -3, morale:  -8, budget:   0, qualityDebt: 5 }, result: "规规矩矩填完了。团队花了整整一天半。没有一个字会被人看到。" },
       { text: "复制去年的改改",              effects: { progress: -1, morale:  -3, budget:   0 }, result: "敷衍了事。系统审核居然过了。" },
       { text: "你来填，让团队继续开发",      effects: { progress: -2, morale:   8, budget:   0 }, result: "你一个人扛了所有行政工作。团队很感激你。你很累。" },
     ]
@@ -677,7 +708,7 @@ const EVENTS = [
     choices: [
       { text: "走完全流程，合规操作",        effects: { progress: -5, morale:  -5, budget:   0 }, result: "三周后终于批了。你学会了什么叫「等待」。" },
       { text: "找关键人直接拍板",            effects: { progress: -2, morale:   0, budget:  -8 }, result: "请了个饭，三天搞定。有人在背后说你「不走程序」。" },
-      { text: "先做，边走流程边推进",        effects: { progress:  2, morale:  -5, budget:   0 }, result: "进度推了，但批复下来发现需要改动。还好改动不大。" },
+      { text: "先做，边走流程边推进",        effects: { progress:  2, morale:  -5, budget:   0, qualityDebt: 8 }, result: "进度推了，但批复下来发现需要改动。还好改动不大。" },
     ]
   },
   // ---- 市场热潮 ----
@@ -687,7 +718,7 @@ const EVENTS = [
     situation: "老板看到了一篇爆款分析文章，紧急拉你开会：",
     dialogue: "《极寒幸存者》这周月流水破亿！生存建造类型现在最热！我们的游戏能不能加入这个元素？或者干脆转型？你来评估一下，下周给我方案。",
     choices: [
-      { text: "全力融入，方向转型",                effects: { progress: -9, morale:   5, budget: -10 }, result: "兴奋持续了三天。团队发现转型意味着三个月白干。" },
+      { text: "全力融入，方向转型",                effects: { progress: -9, morale:   5, budget: -10, qualityDebt: 10 }, result: "兴奋持续了三天。团队发现转型意味着三个月白干。" },
       { text: "表面融入，加个「探索模式」",        effects: { progress: -4, morale:  -3, budget:  -5 }, result: "做出了一个四不像。玩家不买账，老板也不满意。" },
       { text: "礼貌拒绝，坚守核心方向",            effects: { progress:  1, morale:  -8, budget:   0 }, result: "老板有点不开心。但项目没乱。六个月后那个热点凉了。" },
     ]
@@ -699,7 +730,7 @@ const EVENTS = [
     situation: "财务发来一封邮件：",
     dialogue: "根据对赌协议条款，本季度公司营收未达预期，全员季度奖金将缩水50%。你的项目团队已经知道了这个消息……你没有办法阻止这件事，但你需要应对它。",
     choices: [
-      { text: "召开全员会议，稳定军心",      effects: { progress: -2, morale:  -8, budget:   0 }, result: "你说了很多鼓励的话。大家礼貌地鼓了掌。士气还是跌了。" },
+      { text: "召开全员会议，稳定军心",      effects: { progress: -2, morale:  -8, budget:   0, qualityDebt: 5 }, result: "你说了很多鼓励的话。大家礼貌地鼓了掌。士气还是跌了。" },
       { text: "加大画饼，许诺上线奖励",      effects: { progress:  0, morale:  -5, budget:   0 }, result: "一半人信了。另一半人开始悄悄更新简历。" },
       { text: "自掏腰包补贴几个核心成员",    effects: { progress:  1, morale:   8, budget: -15 }, result: "你赢得了一些心。代价是你自己的腰包。" },
     ]
@@ -710,7 +741,7 @@ const EVENTS = [
     situation: "主程私下找到你：",
     dialogue: "制作人，我有个事……我手上有公司期权，归属期还有8个月，但我已经拿到了一个好offer。走的话期权全没了，但留下来……你懂的，我现在状态确实不太行。",
     choices: [
-      { text: "留住他，给他更好的条件",          effects: { progress:  2, morale: -5, budget: -15 }, result: "他留下来了，但状态越来越差。代码质量肉眼可见地在下降。" },
+      { text: "留住他，给他更好的条件",          effects: { progress:  2, morale: -5, budget: -15, qualityDebt: 5 }, result: "他留下来了，但状态越来越差。代码质量肉眼可见地在下降。" },
       { text: "放他走，快速启动交接",             effects: { progress: -4, morale:  5, budget:  -5 }, result: "他感激你的理解。交接很痛苦，但完成后团队反而透了口气。" },
       { text: "帮他争取调岗，换个环境再撑撑",    effects: { progress: -3, morale:  8, budget:   0 }, result: "调岗批了，他换了组。你消耗了政治资本，但留住了关系。" },
     ]
@@ -721,7 +752,7 @@ const EVENTS = [
     situation: "进度落后，你考虑紧急扩充团队：",
     dialogue: "HR说有三个候选人可以快速入职。但你的老程序说：「加人只会让我们更慢，至少前一个月。」人月神话你不是没读过……",
     choices: [
-      { text: "大量招人，相信人海战术",        effects: { progress: -6, morale:  -8, budget: -15 }, result: "新人带教让所有人停下来。四周后才看到效果。Brooks是对的。" },
+      { text: "大量招人，相信人海战术",        effects: { progress: -6, morale:  -8, budget: -15, qualityDebt: 8 }, result: "新人带教让所有人停下来。四周后才看到效果。Brooks是对的。" },
       { text: "只招一个最关键岗位",            effects: { progress: -3, morale:  -3, budget:  -8 }, result: "带教成本尚可。三周后那个人开始产出。谨慎但有效。" },
       { text: "不招人，靠现有团队硬扛",        effects: { progress:  2, morale: -10, budget:   0 }, result: "团队压力很大，但没有被新人拖慢。进度稳住了。" },
     ]
@@ -733,12 +764,83 @@ const EVENTS = [
     dialogue: "「项目进度看起来……有点慢啊。我们下个季度的KPI目标是这个数，你觉得能完成吗？」那个数字需要你接下来每周产出翻倍。",
     choices: [
       { text: "拍胸脯保证，完不成自罚",          effects: { progress:  0, morale:  -5, budget:   0 }, result: "领导满意地点头。团队听说了，集体沉默。压力全在你身上了。" },
-      { text: "如实分析风险，提出可达目标",        effects: { progress:  2, morale:   5, budget:   0, bossTrust: 1 }, result: "领导皱了皱眉，但接受了合理目标。团队觉得你靠谱。" },
+      { text: "如实分析风险，提出可达目标",        effects: { progress:  2, morale:   5, budget:   0, bossTrust: 1, qualityDebt: 3 }, result: "领导皱了皱眉，但接受了合理目标。团队觉得你靠谱。" },
       { text: "用漂亮的PPT转移注意力",            effects: { progress: -2, morale:   3, budget:  -5 }, result: "这周做PPT了，没做正事。但领导暂时满意了。" },
     ]
   },
   MANPOWER_EVENT,
 ];
+
+function getTeamShortageEvent(direction, count, profile) {
+  const size = profile.projectTeamSize;
+  const need = profile.sweetSpot;
+  return {
+    id: "team_shortage",
+    name: "人手不足",
+    emoji: "👤",
+    color: "#f97316",
+    tagline: "有些职能根本没人管",
+    situation: "你看着排期表，发现——",
+    dialogue: `${size}人的项目，核心管理层只有${count}个人。
+有些职能直接没人管，下面的人不知道该听谁的。
+${count < need - 1 ? "现在不是效率问题，是有些事情根本没人做。" : "勉强能转，但每个人都在超负荷。"}`,
+    choices: [
+      {
+        text: "赶工补上，核心团队顶上去。",
+        effects: { progress: 3, morale: -8, qualityDebt: 10 },
+        result: "你让每个人多管一摊。进度是动了，但粗糙得让人心虚。",
+        hidden: { grit: 1 },
+      },
+      {
+        text: "紧急招人，预算不是现在省的时候。",
+        effects: { budget: -15, morale: 3 },
+        result: "你批了招聘。人还没到，但团队知道你在解决问题。",
+        hidden: { people: 1 },
+      },
+      {
+        text: "调整目标，做少做精。",
+        effects: { progress: -5, morale: 3, qualityDebt: -5 },
+        result: "你砍了一些非核心需求。团队松了口气，但老板问你怎么进度慢了。",
+        hidden: { judgment: 1 },
+      },
+    ],
+  };
+}
+
+function getTeamOvercrowdEvent(direction, count, profile) {
+  const size = profile.projectTeamSize;
+  return {
+    id: "team_overcrowd",
+    name: "人浮于事",
+    emoji: "🪑",
+    color: "#94a3b8",
+    tagline: "有人在工位上刷手机",
+    situation: "你路过办公区，注意到——",
+    dialogue: `${count}个核心管理层，${size}人的项目。
+有些人在工位上刷手机。不是他们不努力，是不知道该干什么。
+指挥链太长了，决策比执行慢。`,
+    choices: [
+      {
+        text: "精简团队，只留关键岗。",
+        effects: { morale: -10, budget: 8 },
+        result: "你裁了两个人。剩下的效率反而上来了，但没人说你好。",
+        hidden: { people: -1, grit: 1 },
+      },
+      {
+        text: "给闲置的人找事做——开拓新方向。",
+        effects: { progress: 5, budget: -8, qualityDebt: 5 },
+        result: "多了几个副项目。主进度快了点，但精力更分散了。",
+        hidden: { judgment: -1 },
+      },
+      {
+        text: "不管，让它自然消化。",
+        effects: { morale: -3, budget: -5 },
+        result: "多出来的人慢慢找到了位置。也可能没有。预算在烧。",
+        hidden: {},
+      },
+    ],
+  };
+}
 
 const DIRECTION_SPECIFIC_EVENTS = [
   {
@@ -789,61 +891,66 @@ const MONTH_FLAVORS = [
 
 const MILESTONE_EVENTS = [
   {
+    id: "m1_review",
     month: 1,
     name: "立项启动评审", emoji: "🚀", color: "#7678f0",
     tagline: "「方向定了吗？」",
     situation: "第一个月末，上面来看原型：",
     dialogue: "投资方代表坐在会议室里，笑着问：「能跑吗？大概什么感觉？我不需要完整的，能动就行。」你扫了一眼团队——他们昨晚熬通宵做了一个能跑的东西。",
     choices: [
-      { text: "展示这个能跑的版本", effects: { progress: 0, morale: 5, budget: 5 }, result: "他们满意地点头。你没有告诉他们这是昨晚才做的。" },
+      { text: "展示这个能跑的版本", effects: { progress: 0, morale: 5, budget: 5 }, hidden: { honesty: -1 }, result: "他们满意地点头。你没有告诉他们这是昨晚才做的。" },
       { text: "如实说明当前进度和风险", effects: { progress: -3, morale: 3, budget: 0 }, result: "他皱了皱眉，但最终点头：「诚实是好事。」进度没虚报，心里稳了。" },
       { text: "先找人确认这个版本有多少是真实的", effects: { progress: -2, morale: 0, budget: 0 }, result: "你找人问了。心里大概有底了。" },
     ]
   },
   {
+    id: "m2_review",
     month: 2,
     name: "MVP 评审", emoji: "🎮", color: "#0ea5e9",
     tagline: "「核心玩法能玩通吗？」",
     situation: "第二个月末，内部评审：",
     dialogue: "总监把手柄放下来：「核心循环我玩了十分钟，感觉还行，就是……有几个地方我有点疑问。」\n他翻开了一页记满问题的纸。",
     choices: [
-      { text: "逐条解释，打消疑虑", effects: { progress: 0, morale: 3, budget: 3 }, result: "你回答了所有问题。有三个你其实不确定，但你说得很自信。" },
+      { text: "逐条解释，打消疑虑", effects: { progress: 0, morale: 3, budget: 3 }, hidden: { honesty: -1 }, result: "你回答了所有问题。有三个你其实不确定，但你说得很自信。" },
       { text: "承认部分问题，给出修复计划", effects: { progress: -4, morale: 5, budget: 0 }, result: "他看起来有点失望，但接受了时间表。进度是真实的。" },
       { text: "先确认这十分钟他没玩到的地方是什么情况", effects: { progress: -2, morale: 0, budget: 0 }, result: "你找人问了。心里大概有底了。" },
     ]
   },
   {
+    id: "m3_review",
     month: 3,
     name: "基础闭环评审", emoji: "🔄", color: "#10b981",
     tagline: "「从头玩到尾，不崩吗？」",
     situation: "第三个月末，里程碑测试：",
     dialogue: "QA组发来报告：「我们跑了一遍主流程……有一些情况。」你们约好了今天下午向上汇报全流程可用性。",
     choices: [
-      { text: "先开会，QA的问题会后再处理", effects: { progress: 0, morale: 0, budget: 5 }, result: "汇报很顺利。QA报告被你压到了下周。" },
+      { text: "先开会，QA的问题会后再处理", effects: { progress: 0, morale: 0, budget: 5 }, hidden: { honesty: -1 }, result: "汇报很顺利。QA报告被你压到了下周。" },
       { text: "推迟汇报，先处理QA问题", effects: { progress: -5, morale: 3, budget: 0 }, result: "上面有点不满意被推迟。但你知道自己在哪里。" },
       { text: "让心腹先看一下QA报告里哪些是真正的问题", effects: { progress: -2, morale: 0, budget: 0 }, result: "你找人问了。心里大概有底了。" },
     ]
   },
   {
+    id: "m4_review",
     month: 4,
     name: "内容量产评审", emoji: "📦", color: "#f59e0b",
     tagline: "「内容够吗？」",
     situation: "第四个月末，内容进度核查：",
     dialogue: "策划总监发来一个表格：「按计划，本月应该完成60%的关卡内容。我这边看到的数字是58%，差不多。」你的主程私下发消息：「那个数字是怎么算出来的？」",
     choices: [
-      { text: "确认数字，继续推进", effects: { progress: 0, morale: 3, budget: 3 }, result: "58%通过了。你没有去追那条私信。" },
+      { text: "确认数字，继续推进", effects: { progress: 0, morale: 3, budget: 3 }, hidden: { honesty: -1 }, result: "58%通过了。你没有去追那条私信。" },
       { text: "要求重新核查内容完成标准", effects: { progress: -8, morale: 5, budget: 0 }, result: "核查花了三天。真实数字是41%。上面很不高兴。" },
       { text: "先回那条私信，问清楚", effects: { progress: -3, morale: 0, budget: 0 }, result: "你找人问了。心里大概有底了。" },
     ]
   },
   {
+    id: "m5_review",
     month: 5,
     name: "整体验收评审", emoji: "🔍", color: "#ef4444",
     tagline: "「这个游戏，能上线吗？」",
     situation: "第五个月末，外部评审：",
     dialogue: "发行方带了三个人来，玩了两个小时。会议室里安静了很长时间。最后他们说：「我们有一些反馈……」",
     choices: [
-      { text: "接受反馈，承诺全部修改", effects: { progress: -5, morale: -5, budget: 5 }, result: "他们满意地走了。你看着那份修改清单，感觉最后一个月不够用。" },
+      { text: "接受反馈，承诺全部修改", effects: { progress: -5, morale: -5, budget: 5, qualityDebt: 5 }, hidden: { honesty: -1 }, result: "他们满意地走了。你看着那份修改清单，感觉最后一个月不够用。" },
       { text: "区分必改和不改，谈判范围", effects: { progress: -3, morale: 3, budget: 0 }, result: "谈了两个小时。砍掉了一半修改项。进度有损但可控。" },
       { text: "先私下确认团队能做到哪些", effects: { progress: -2, morale: 0, budget: 0 }, result: "你找人问了。心里大概有底了。" },
     ]
@@ -851,17 +958,20 @@ const MILESTONE_EVENTS = [
 ];
 
 function MonthSummaryCard({ data, bossTrust, people, peopleHintShown, onNext }) {
-  const { month, delta, progress, weeksLeft } = data;
+  const { month, delta, progress, weeksLeft, monthlyMoraleDecay } = data;
   const flavor = MONTH_FLAVORS[month - 1] || "";
   return (
     <div style={{ padding: "24px 18px", flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
       <div style={{ background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 12, padding: "24px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
-        <div style={{ fontSize: 13, color: "#acacac", fontFamily: "monospace" }}>— 月度小结 —</div>
+        <div style={{ fontSize: 13, color: "#c7c7c7", fontFamily: "monospace" }}>— 月度小结 —</div>
         <div style={{ fontSize: 20, fontWeight: 700, color: "#888" }}>第{month}月结束</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6, fontFamily: "monospace", fontSize: 14, lineHeight: 1.6 }}>
           <div>本月进度推进了 <span style={{ color: delta >= 0 ? "#4ade80" : "#f87171" }}>{delta >= 0 ? "+" : ""}{delta}%</span></div>
-          <div style={{ color: "#acacac" }}>距离上线还有 <span style={{ color: "#888" }}>{100 - progress}%</span></div>
-          <div style={{ color: "#acacac" }}>剩余 <span style={{ color: weeksLeft < 8 ? "#f87171" : "#888" }}>{weeksLeft}</span> 周</div>
+          <div style={{ color: "#c7c7c7" }}>距离上线还有 <span style={{ color: "#888" }}>{100 - progress}%</span></div>
+          <div style={{ color: "#c7c7c7" }}>剩余 <span style={{ color: weeksLeft < 8 ? "#f87171" : "#888" }}>{weeksLeft}</span> 周</div>
+          {monthlyMoraleDecay && (
+            <div style={{ color: "#f97316" }}>本月士气自然消耗：-{monthlyMoraleDecay}</div>
+          )}
           {bossTrust <= 2 && bossTrust > 0 && (
             <div style={{ color: "#f87171", fontStyle: "italic", marginTop: 4 }}>他最近在问其他人你项目的情况。</div>
           )}
@@ -963,7 +1073,7 @@ function StatBar({ label, value, color, onClick, displayValue }) {
   const danger = pct < 20;
   return (
     <div style={{ flex: 1, minWidth: 0, cursor: onClick ? "pointer" : "default" }} onClick={onClick}>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontFamily: "monospace", color: danger ? "#f87171" : "#acacac", marginBottom: 3, lineHeight: 1.4 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontFamily: "monospace", color: danger ? "#f87171" : "#c7c7c7", marginBottom: 3, lineHeight: 1.4 }}>
         <span>{label}</span><span style={{ color: danger ? "#f87171" : color }}>{displayValue !== undefined ? displayValue : value}</span>
       </div>
       <div style={{ height: 5, background: "#111", borderRadius: 3, overflow: "hidden" }}>
@@ -987,7 +1097,7 @@ function ChoicePreview({ effects, progressBonus }) {
   const np = (effects.progress || 0) + BASE_PROGRESS + (progressBonus || 0);
   const nm = effects.morale || 0;
   const nb = effects.budget || 0;
-  const c = (v) => v > 0 ? "#4ade80" : v < 0 ? "#f87171" : "#acacac";
+  const c = (v) => v > 0 ? "#4ade80" : v < 0 ? "#f87171" : "#c7c7c7";
   return (
     <div style={{ display: "flex", gap: 10, marginTop: 6, fontSize: 13, fontFamily: "monospace", opacity: 0.85 }}>
       <span>📈<span style={{ color: c(np) }}>{effectArrows(np)}</span></span>
@@ -1004,23 +1114,23 @@ function WorkModeSelector({ workMode, setWorkMode, overtimeType, setOvertimeType
     const m = WORK_MODES[key];
     const active = workMode === key;
     return (
-      <button key={key} onClick={() => setWorkMode(key)} style={{ flex: 1, padding: "7px 6px", fontSize: 13, fontFamily: "monospace", background: active ? "#1a1a2e" : "#08080f", border: `1px solid ${active ? "#4a4a7a" : "#1e1e2e"}`, color: active ? "#c0c0e0" : "#acacac", borderRadius: 6, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
-        <span>{m.emoji}</span><span>{m.label}</span><span style={{ color: active ? "#acacac" : "#acacac", fontSize: 12 }}>{m.ap + (apBonus||0)}AP</span>
+      <button key={key} onClick={() => setWorkMode(key)} style={{ flex: 1, padding: "7px 6px", fontSize: 13, fontFamily: "monospace", background: active ? "#1a1a2e" : "#08080f", border: `1px solid ${active ? "#4a4a7a" : "#1e1e2e"}`, color: active ? "#c0c0e0" : "#c7c7c7", borderRadius: 6, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+        <span>{m.emoji}</span><span>{m.label}</span><span style={{ color: active ? "#c7c7c7" : "#c7c7c7", fontSize: 12 }}>{m.ap + (apBonus||0)}AP</span>
       </button>
     );
   };
   return (
     <div style={{ marginBottom: 8 }}>
-      <div style={{ fontSize: 12, color: "#acacac", marginBottom: 5, fontFamily: "monospace" }}>工作模式 · 剩余 {Math.max(0, WORK_MODES[workMode].ap + (apBonus||0) - apSpent)}AP</div>
+      <div style={{ fontSize: 12, color: "#c7c7c7", marginBottom: 5, fontFamily: "monospace" }}>工作模式 · 剩余 {Math.max(0, WORK_MODES[workMode].ap + (apBonus||0) - apSpent)}AP</div>
       <div style={{ display: "flex", gap: 5, marginBottom: isOvertime ? 5 : 0 }}>
         {["normal", "overtime", "extreme"].map(modeBtn)}
       </div>
       {isOvertime && (
         <div style={{ display: "flex", gap: 5 }}>
-          <button onClick={() => setOvertimeType("pay")} style={{ flex: 1, padding: "7px 8px", fontSize: 13, background: overtimeType === "pay" ? "#0d2010" : "#08080f", border: `1px solid ${overtimeType === "pay" ? "#166534" : "#1e1e2e"}`, color: overtimeType === "pay" ? "#4ade80" : "#acacac", borderRadius: 6, cursor: "pointer" }}>
+          <button onClick={() => setOvertimeType("pay")} style={{ flex: 1, padding: "7px 8px", fontSize: 13, background: overtimeType === "pay" ? "#0d2010" : "#08080f", border: `1px solid ${overtimeType === "pay" ? "#166534" : "#1e1e2e"}`, color: overtimeType === "pay" ? "#4ade80" : "#c7c7c7", borderRadius: 6, cursor: "pointer" }}>
             💰 付加班费 -{WORK_MODES[workMode].budgetCost}预算
           </button>
-          <button onClick={() => setOvertimeType("pie")} style={{ flex: 1, padding: "7px 8px", fontSize: 13, background: overtimeType === "pie" ? "#2d0a0a" : "#08080f", border: `1px solid ${overtimeType === "pie" ? "#7f1d1d" : "#1e1e2e"}`, color: overtimeType === "pie" ? "#f87171" : "#acacac", borderRadius: 6, cursor: "pointer" }}>
+          <button onClick={() => setOvertimeType("pie")} style={{ flex: 1, padding: "7px 8px", fontSize: 13, background: overtimeType === "pie" ? "#2d0a0a" : "#08080f", border: `1px solid ${overtimeType === "pie" ? "#7f1d1d" : "#1e1e2e"}`, color: overtimeType === "pie" ? "#f87171" : "#c7c7c7", borderRadius: 6, cursor: "pointer" }}>
             🥧 画饼{pieCount > 0 ? `×${pieCount + 1}` : ""} -{piePenalty}士气
           </button>
         </div>
@@ -1035,25 +1145,27 @@ function ActionMenu({ state, workMode, apSpent, freezeDone, onAction }) {
   const isMonthEnd = state.week % 4 === 0;
   const ctx = { freezeDone, isMonthEnd };
 
-  const available = ACTIONS.filter(a => a.available(state, ctx));
+  const available = ACTIONS
+    .filter(a => a.available(state, ctx))
+    .filter(a => !state.usedActions.includes(a.id));
   if (available.length === 0) return null;
 
   return (
     <div style={{ marginBottom: 8 }}>
-      <div style={{ fontSize: 12, color: "#acacac", marginBottom: 5, fontFamily: "monospace" }}>本周行动</div>
+      <div style={{ fontSize: 12, color: "#c7c7c7", marginBottom: 5, fontFamily: "monospace" }}>本周行动</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
         {available.map(action => {
           const canAfford = apLeft >= action.ap;
           return (
-            <button key={action.id} onClick={() => onAction(action)} disabled={!canAfford} style={{ padding: "7px 10px", fontSize: 13, background: canAfford ? "#0c0c18" : "#080808", border: `1px solid ${canAfford ? "#2a2a3a" : "#161616"}`, color: canAfford ? "#999" : "#acacac", borderRadius: 6, cursor: canAfford ? "pointer" : "default", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}
+            <button key={action.id} onClick={() => onAction(action)} disabled={!canAfford} style={{ padding: "7px 10px", fontSize: 13, background: canAfford ? "#0c0c18" : "#080808", border: `1px solid ${canAfford ? "#2a2a3a" : "#161616"}`, color: canAfford ? "#999" : "#c7c7c7", borderRadius: 6, cursor: canAfford ? "pointer" : "default", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}
               onMouseEnter={e => canAfford && (e.currentTarget.style.borderColor = "#4a4a7a")}
               onMouseLeave={e => canAfford && (e.currentTarget.style.borderColor = "#2a2a3a")}>
               <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                 <span>{action.emoji}</span>
                 <span>{action.label}</span>
-                <span style={{ color: "#acacac", fontFamily: "monospace" }}>{action.ap}AP</span>
+                <span style={{ color: "#c7c7c7", fontFamily: "monospace" }}>{action.ap}AP</span>
               </div>
-              <div style={{ fontSize: 12, fontFamily: "monospace", color: canAfford ? "#acacac" : "#2a2a2a" }}>{colorDesc(action.desc)}</div>
+              <div style={{ fontSize: 12, fontFamily: "monospace", color: canAfford ? "#c7c7c7" : "#2a2a2a" }}>{colorDesc(action.desc)}</div>
             </button>
           );
         })}
@@ -1068,18 +1180,18 @@ function IntroScreen({ onNext }) {
   return (
     <div style={{ minHeight: "100vh", background: "#060610", color: "#e0e0e8", fontFamily: "'Segoe UI', system-ui, sans-serif", maxWidth: 420, margin: "0 auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "24px 20px" }}>
       <div style={{ fontSize: 40, marginBottom: 24, textAlign: "center" }}>🎮</div>
-      <div style={{ fontSize: 13, color: "#acacac", fontFamily: "monospace", lineHeight: 2, marginBottom: 32 }}>
-        <p style={{ color: "#acacac" }}>你今年35岁。</p>
-        <p style={{ color: "#acacac" }}>被毕业已经是半年前的事，</p>
-        <p style={{ color: "#acacac" }}>现在你是一位X滴司机。</p>
-        <p style={{ marginTop: 16, color: "#acacac" }}>好在你买的车够好，可以跑专车。</p>
-        <p style={{ marginTop: 16, color: "#acacac" }}>有一天，你接到了一位神秘乘客，</p>
-        <p style={{ color: "#acacac" }}>他很反常地和你聊了一路的天，直到把他送到了公司园区。</p>
-        <p style={{ marginTop: 16, color: "#acacac" }}>他说现在他无人可用，那些肥头大耳的老将都被他开除完了，</p>
-        <p style={{ color: "#acacac" }}>他愿意给你一次机会——</p>
-        <p style={{ marginTop: 16, color: "#acacac" }}>担任游戏制作人，试用期六个月。</p>
-        <p style={{ color: "#acacac" }}>你必须在24周内把游戏送上线。</p>
-        <p style={{ color: "#acacac" }}>否则……开除速度一定会很快！</p>
+      <div style={{ fontSize: 15, color: "#c7c7c7", fontFamily: "monospace", lineHeight: 2, marginBottom: 32 }}>
+        <p style={{ color: "#c7c7c7" }}>你今年35岁。</p>
+        <p style={{ color: "#c7c7c7" }}>被毕业已经是半年前的事，</p>
+        <p style={{ color: "#c7c7c7" }}>现在你是一位X滴司机。</p>
+        <p style={{ marginTop: 16, color: "#c7c7c7" }}>好在你买的车够好，可以跑专车。</p>
+        <p style={{ marginTop: 16, color: "#c7c7c7" }}>有一天，你接到了一位神秘乘客，</p>
+        <p style={{ color: "#c7c7c7" }}>他很反常地和你聊了一路的天，直到把他送到了公司园区。</p>
+        <p style={{ marginTop: 16, color: "#c7c7c7" }}>他说现在他无人可用，那些肥头大耳的老将都被他开除完了，</p>
+        <p style={{ color: "#c7c7c7" }}>他愿意给你一次机会——</p>
+        <p style={{ marginTop: 16, color: "#c7c7c7" }}>担任游戏制作人，试用期六个月。</p>
+        <p style={{ color: "#c7c7c7" }}>你必须在24周内把游戏送上线。</p>
+        <p style={{ color: "#c7c7c7" }}>否则……开除速度一定会很快！</p>
       </div>
       <button onClick={onNext} style={{ background: "#0c0c18", border: "1px solid #2a2a3a", color: "#888", borderRadius: 8, padding: "13px 14px", fontSize: 15, cursor: "pointer", width: "100%", transition: "all 0.15s" }}
         onMouseEnter={e => { e.currentTarget.style.borderColor = "#4a4a7a"; e.currentTarget.style.color = "#ccc"; }}
@@ -1102,7 +1214,7 @@ function CardScreen({ step, pickedCards, onPick, onNext }) {
 
   return (
     <div style={{ minHeight: "100vh", background: "#060610", color: "#e0e0e8", fontFamily: "'Segoe UI', system-ui, sans-serif", maxWidth: 420, margin: "0 auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: 24 }}>
-      <div style={{ fontSize: 12, color: "#acacac", fontFamily: "monospace", marginBottom: 12 }}>
+      <div style={{ fontSize: 12, color: "#c7c7c7", fontFamily: "monospace", marginBottom: 12 }}>
         {step + 1} / {activeGroups.length}
       </div>
       <div style={{ fontSize: 17, fontWeight: 700, color: "#999", marginBottom: 4 }}>{group.title}</div>
@@ -1123,7 +1235,7 @@ function CardScreen({ step, pickedCards, onPick, onNext }) {
       </div>
       {picked && (
         <div style={{ background: "#0c0c18", border: "1px solid #1a2a1a", borderRadius: 10, padding: "12px 14px", marginBottom: 20, animation: "floatIn 0.3s ease" }}>
-          <div style={{ fontSize: 12, color: "#acacac", marginBottom: 4, fontFamily: "monospace" }}>{picked.emoji} {picked.label}</div>
+          <div style={{ fontSize: 12, color: "#c7c7c7", marginBottom: 4, fontFamily: "monospace" }}>{picked.emoji} {picked.label}</div>
           <div style={{ fontSize: 15, color: "#4ade80", lineHeight: 1.6 }}>{picked.reveal}</div>
         </div>
       )}
@@ -1163,6 +1275,30 @@ const DIRECTIONS = {
   MINI_GAME: { id: "MINI_GAME", label: "小游戏买量", pitch: "微信生态，低成本获客。" },
   LEGACY: { id: "LEGACY", label: "叔系老游戏", pitch: "面向30+男性，慢节奏情怀。" },
   PC_MMO: { id: "PC_MMO", label: "重度端游移植", pitch: "把PC MMO搬上手机，吃老用户。" },
+};
+
+const DIRECTION_TEAM_SCALE = {
+  MINI_GAME:     { projectTeamSize: 5,  budgetDrainMultiplier: 0.5,  sweetSpot: 2, minViable: 1, overcrowd: 4 },
+  CASUAL:        { projectTeamSize: 8,  budgetDrainMultiplier: 0.6,  sweetSpot: 2, minViable: 1, overcrowd: 4 },
+  IDLE:          { projectTeamSize: 8,  budgetDrainMultiplier: 0.6,  sweetSpot: 2, minViable: 1, overcrowd: 4 },
+  CHESS_CARD:    { projectTeamSize: 6,  budgetDrainMultiplier: 0.5,  sweetSpot: 2, minViable: 1, overcrowd: 4 },
+  ROMANCE:       { projectTeamSize: 12, budgetDrainMultiplier: 0.8,  sweetSpot: 3, minViable: 2, overcrowd: 5 },
+  AUTO_CHESS:    { projectTeamSize: 15, budgetDrainMultiplier: 0.9,  sweetSpot: 3, minViable: 2, overcrowd: 5 },
+  CARD:          { projectTeamSize: 15, budgetDrainMultiplier: 0.9,  sweetSpot: 3, minViable: 2, overcrowd: 5 },
+  SIM:           { projectTeamSize: 18, budgetDrainMultiplier: 1.0,  sweetSpot: 3, minViable: 2, overcrowd: 5 },
+  LEGACY:        { projectTeamSize: 18, budgetDrainMultiplier: 1.0,  sweetSpot: 3, minViable: 2, overcrowd: 5 },
+  SLG:           { projectTeamSize: 25, budgetDrainMultiplier: 1.2,  sweetSpot: 3, minViable: 2, overcrowd: 5 },
+  ANIME:         { projectTeamSize: 30, budgetDrainMultiplier: 1.3,  sweetSpot: 4, minViable: 3, overcrowd: 6 },
+  PARTY:         { projectTeamSize: 25, budgetDrainMultiplier: 1.2,  sweetSpot: 3, minViable: 2, overcrowd: 5 },
+  ARPG:          { projectTeamSize: 35, budgetDrainMultiplier: 1.4,  sweetSpot: 4, minViable: 3, overcrowd: 6 },
+  GLOBAL:        { projectTeamSize: 40, budgetDrainMultiplier: 1.5,  sweetSpot: 4, minViable: 3, overcrowd: 6 },
+  AI_NATIVE:     { projectTeamSize: 35, budgetDrainMultiplier: 1.4,  sweetSpot: 4, minViable: 3, overcrowd: 6 },
+  METAVERSE:     { projectTeamSize: 45, budgetDrainMultiplier: 1.6,  sweetSpot: 4, minViable: 3, overcrowd: 6 },
+  IP_PORT:       { projectTeamSize: 40, budgetDrainMultiplier: 1.5,  sweetSpot: 4, minViable: 3, overcrowd: 6 },
+  BATTLE_ROYALE: { projectTeamSize: 50, budgetDrainMultiplier: 1.7,  sweetSpot: 5, minViable: 4, overcrowd: 6 },
+  MOBA:          { projectTeamSize: 50, budgetDrainMultiplier: 1.7,  sweetSpot: 5, minViable: 4, overcrowd: 6 },
+  OPENWORLD:     { projectTeamSize: 60, budgetDrainMultiplier: 1.8,  sweetSpot: 5, minViable: 4, overcrowd: 6 },
+  PC_MMO:        { projectTeamSize: 55, budgetDrainMultiplier: 1.8,  sweetSpot: 5, minViable: 4, overcrowd: 6 },
 };
 
 const YEAR_DATA = {
@@ -1731,15 +1867,77 @@ const PHASE_LABELS = [
   { min: 50, label: "功能收尾期" }, { min: 75, label: "上线冲刺期" },
 ];
 
+function OnboardingScreen({ pickedCards, onDone }) {
+  const [step, setStep] = useState(0);
+
+  const screens = [
+    {
+      header: "第0周  入职",
+      content: <>前台坐着一个人，在等你。<br/><br/>你大概知道那是公司的某个高层，<br/>也是老板的弟弟，<br/>叫 Tom。<br/><br/>他没有站起来。<br/><br/>「来了。跟我来。」</>,
+      button: "继续 →"
+    },
+    {
+      header: "你有多少时间",
+      content: <>「试用期六个月，24周。」<br/><br/>「你要在这24周里，<br/>  把游戏的完成度推到100。」<br/>「每4周，上面会来看一次进度。<br/>  那是你证明自己的节点。」</>,
+      button: "继续 →"
+    },
+    {
+      header: "你每周要做什么",
+      content: <>「你有行动点。分配给你觉得<br/>  重要的事。」<br/><br/>  推进度  /  维持团队  /  管理老板<br/><br/>「行动结束，会有一件事找上门。」<br/><br/>「那件事需要你做决定。」<br/><br/>「没有标准答案。」</>,
+      button: "继续 →"
+    },
+    {
+      header: "别让这四个东西归零",
+      content: <>Tom 指了指走廊尽头的白板。<br/><br/>  📈 进度         推到100才算过<br/>  💪 士气         归零项目解散<br/>  💰 预算         烧完项目停摆<br/>  🤝 老板信任     跌光你被开除<br/><br/>「四个里任何一个先到底，<br/>  就结束了。」</>,
+      button: "继续 →"
+    },
+    {
+      header: "",
+      content: <>Tom 转身要走，停了一下。<br/><br/>「还有一件事。」<br/><br/>「这里没有人会告诉你<br/>  怎么做选择。」<br/><br/>「但每一个决定，<br/>  都会被记住。」<br/><br/>你不确定他说的是"我哥"，<br/>还是别的什么。</>,
+      button: "好，我准备好了 →"
+    }
+  ];
+
+  const current = screens[step];
+
+  const handleNext = () => {
+    if (step < screens.length - 1) {
+      setStep(step + 1);
+    } else {
+      onDone();
+    }
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#060610", color: "#e0e0e8", fontFamily: "'Segoe UI', system-ui, sans-serif", maxWidth: 420, margin: "0 auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "24px 20px" }}>
+      <div style={{ fontSize: 12, color: "#c7c7c7", fontFamily: "monospace", marginBottom: 12 }}>
+        {step + 1} / {screens.length}
+      </div>
+      {current.header && (
+        <div style={{ fontSize: 17, fontWeight: 700, color: "#999", marginBottom: 20 }}>{current.header}</div>
+      )}
+      <div style={{ fontFamily: "monospace", fontSize: 14, color: "#c7c7c7", lineHeight: 1.8, marginBottom: 32 }}>
+        {current.content}
+      </div>
+      <button onClick={handleNext}
+        style={{ background: "#0c0c18", border: "1px solid #2a2a3a", color: "#888", borderRadius: 8, padding: "13px 14px", fontSize: 15, cursor: "pointer", width: "100%", transition: "all 0.15s", textAlign: "left" }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = "#4a4a7a"; e.currentTarget.style.color = "#ccc"; }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor = "#2a2a3a"; e.currentTarget.style.color = "#888"; }}>
+        {current.button}
+      </button>
+    </div>
+  );
+}
+
 export default function App() {
-  const [appPhase, setAppPhase] = useState("intro"); // "intro" | "cards" | "game"
+  const [appPhase, setAppPhase] = useState("intro"); // "intro" | "cards" | "onboarding" | "game"
   const [cardStep, setCardStep] = useState(0);
   const [pickedCards, setPickedCards] = useState([]);
 
    const [state, setState] = useState(() => {
      const years = [2010, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026];
      const marketYear = years[Math.floor(Math.random() * years.length)];
-     return { week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust: Math.floor(Math.random() * 6) + 3, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, directionChosen: false, directionDelayPenalty: false, marketYear, companySize: "mid", kpiState: "normal", ipType: "none", ipActive: false, ipProtectUsed: 0, ipProtectCount: 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, honestyHintShown: false, peopleHintShown: false, qualityHintShown: false };
+     return { week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust: Math.floor(Math.random() * 6) + 3, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, directionChosen: false, directionDelayPenalty: false, marketYear, companySize: "mid", kpiState: "normal", ipType: "none", ipActive: false, ipProtectUsed: 0, ipProtectCount: 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, honestyHintShown: false, peopleHintShown: false, qualityHintShown: false, usedActions: [], lastManageUpResult: null };
    });
 
   const [workMode, setWorkMode] = useState("normal");
@@ -1764,49 +1962,53 @@ export default function App() {
    const takeAction = useCallback((action) => {
      if (apLeftForAction < action.ap) return;
      if (!action.available(state, ctxForAction)) return;
+     if (state.usedActions.includes(action.id)) return;
      setRecruitResultMessage("");
 
      if (action.id === "campus" || action.id === "social") {
-      const roles = ['engineer', 'designer', 'qa', 'producer', 'other'];
-      const role = roles[Math.floor(Math.random() * roles.length)];
-      const tags = action.id === "campus" ? CAMPUS_TAGS : SOCIAL_TAGS;
-      const shuffled = [...tags].sort(() => Math.random() - 0.5);
-      const selectedTags = shuffled.slice(0, 2);
-      const seniority = action.id === "campus" ? "fresh" : (Math.random() < 0.5 ? "mid" : "veteran");
-      const isTroublemaker = action.id === "social" && Math.random() < 0.3;
+       const roles = ['engineer', 'designer', 'qa'];
+       const role = roles[Math.floor(Math.random() * roles.length)];
+       const tags = action.id === "campus" ? CAMPUS_TAGS : SOCIAL_TAGS;
+       const shuffled = [...tags].sort(() => Math.random() - 0.5);
+       const selectedTags = shuffled.slice(0, 2);
+       const seniority = action.id === "campus" ? "fresh" : (Math.random() < 0.5 ? "mid" : "veteran");
+       const isTroublemaker = action.id === "social" && Math.random() < 0.3;
 
-      setRecruitCandidate({
-        type: action.id,
-        role,
-        seniority,
-        tags: selectedTags,
-        apCost: action.ap,
-        hiddenType: isTroublemaker ? "troublemaker" : null,
-      });
-      setRecruitResultMessage("");
-      return;
-    }
+       setRecruitCandidate({
+         type: action.id,
+         role,
+         seniority,
+         tags: selectedTags,
+         apCost: action.ap,
+         hiddenType: isTroublemaker ? "troublemaker" : null,
+       });
+       setRecruitResultMessage("");
+       setState(prev => ({ ...prev, usedActions: [...prev.usedActions, action.id] }));
+       setApSpent(p => p + action.ap);
+       return;
+     }
 
-    if (action.id === "layoff") {
-      setLayoffPanelOpen(true);
-      setApSpent(p => p + action.ap);
-      return;
-    }
+     if (action.id === "layoff") {
+       setLayoffPanelOpen(true);
+       setState(prev => ({ ...prev, usedActions: [...prev.usedActions, action.id] }));
+       setApSpent(p => p + action.ap);
+       return;
+     }
 
-    setState(prev => {
-      let result = action.apply(prev);
-      if (action.id === "care" || action.id === "comfort") {
-        const healDelta = result.morale - prev.morale;
-        if (healDelta > 0) {
-          const mult = healthTierForAction.healMult;
-          result = { ...result, morale: Math.min(100, prev.morale + Math.round(healDelta * mult)) };
-        }
-      }
-      return result;
-    });
-    setApSpent(p => p + action.ap);
-    if (action.id === "freeze") setFreezeDone(true);
-  }, [apLeftForAction, state, ctxForAction, healthTierForAction]);
+     setState(prev => {
+       let result = action.apply(prev);
+       if (action.id === "care" || action.id === "comfort") {
+         const healDelta = result.morale - prev.morale;
+         if (healDelta > 0) {
+           const mult = healthTierForAction.healMult;
+           result = { ...result, morale: Math.min(100, prev.morale + Math.round(healDelta * mult)) };
+         }
+       }
+       return { ...result, usedActions: [...result.usedActions, action.id] };
+     });
+     setApSpent(p => p + action.ap);
+     if (action.id === "freeze") setFreezeDone(true);
+   }, [apLeftForAction, state, ctxForAction, healthTierForAction]);
 
   const handleHireCandidate = useCallback(() => {
     if (!recruitCandidate) return;
@@ -2086,6 +2288,16 @@ export default function App() {
           && !(s.narrationsUsed || []).includes(e.id)
         );
         pool = [...pool, ...dirEvents];
+
+        const profile = DIRECTION_TEAM_SCALE[s.gameDirection];
+        if (profile && s.teamSlots.length < profile.minViable
+            && newWeek >= 5 && !(s.narrationsUsed || []).includes("team_shortage")) {
+          return getTeamShortageEvent(s.gameDirection, s.teamSlots.length, profile);
+        }
+        if (profile && s.teamSlots.length > profile.overcrowd
+            && newWeek >= 8 && !(s.narrationsUsed || []).includes("team_overcrowd")) {
+          return getTeamOvercrowdEvent(s.gameDirection, s.teamSlots.length, profile);
+        }
       }
       
       return pool[Math.floor(Math.random() * pool.length)];
@@ -2109,12 +2321,15 @@ export default function App() {
     if (cardStep < activeGroups.length - 1) {
       setCardStep(s => s + 1);
     } else {
-      // All cards picked — build initial state and start game
-      const initState = buildInitialState(pickedCards);
-      setState(initState);
-      setAppPhase("game");
-      setEvent(pickEvent(initState));
+      setAppPhase("onboarding");
     }
+  };
+
+  const handleOnboardingDone = () => {
+    const initState = buildInitialState(pickedCards);
+    setState(initState);
+    setAppPhase("game");
+    setEvent(pickEvent(initState));
   };
 
    const handleChoice = useCallback((choice, optionType) => {
@@ -2158,26 +2373,28 @@ export default function App() {
          return;
        }
 
-       if (event?.id?.startsWith("dir_") && choice.hidden) {
-         setState(prev => {
-           let newState = { ...prev };
-           Object.entries(choice.hidden).forEach(([key, val]) => {
-             if (newState[key] !== undefined) {
-               newState[key] = Math.max(0, Math.min(10, newState[key] + val));
-             }
-           });
-           if (event?.id?.startsWith("dir_")) {
-             newState.narrationsUsed = [...(prev.narrationsUsed || []), event.id];
-           }
-           return newState;
-         });
-       }
-       if (event?.id?.startsWith("dir_") && !choice.hidden) {
-         setState(prev => ({
-           ...prev,
-           narrationsUsed: [...(prev.narrationsUsed || []), event.id],
-         }));
-       }
+        if (choice.hidden) {
+          setState(prev => {
+            let newState = { ...prev };
+            Object.entries(choice.hidden).forEach(([key, val]) => {
+              if (newState[key] !== undefined) {
+                newState[key] = Math.max(0, Math.min(10, newState[key] + val));
+              }
+            });
+            if (event?.id?.startsWith("dir_")) {
+              newState.narrationsUsed = [...(prev.narrationsUsed || []), event.id];
+            }
+            if (event?.id === "team_shortage" || event?.id === "team_overcrowd") {
+              newState.narrationsUsed = [...(prev.narrationsUsed || []), event.id];
+            }
+            return newState;
+          });
+        } else if (event?.id?.startsWith("dir_") || event?.id === "team_shortage" || event?.id === "team_overcrowd") {
+          setState(prev => ({
+            ...prev,
+            narrationsUsed: [...(prev.narrationsUsed || []), event.id],
+          }));
+        }
 
        if (event?.id === "chess_card_jqk") {
         setState(prev => ({
@@ -2342,16 +2559,18 @@ export default function App() {
               ? { ...m.contribution, progressEfficiency: Math.min(m.contribution.progressEfficiency + 0.3, 1.0) }
               : m.contribution
           }));
-          return {
-            ...prev,
-            week: newWeek,
-            survived: prev.survived + 1,
-            progressMomentum: newMomentum,
-            qualityDebt: newQualityDebt,
-            teamSlots: newTeamSlots,
-            overtimeThisWeek: false,
-            narrationsUsed: [...(prev.narrationsUsed || []), event.narrateKey],
-          };
+           return {
+             ...prev,
+             week: newWeek,
+             survived: prev.survived + 1,
+             progressMomentum: newMomentum,
+             qualityDebt: newQualityDebt,
+             teamSlots: newTeamSlots,
+             overtimeThisWeek: false,
+             narrationsUsed: [...(prev.narrationsUsed || []), event.narrateKey],
+             usedActions: [],
+             lastManageUpResult: null,
+           };
         });
         setLastResult("");
         setLastEffects({});
@@ -2497,13 +2716,24 @@ export default function App() {
       bossReact = "";
     }
 
+    const tempWeek = state.week + 1;
+    const tempMonth = Math.ceil(tempWeek / 4);
+    const tempDirDrain = state.gameDirection
+      ? (DIRECTION_TEAM_SCALE[state.gameDirection]?.budgetDrainMultiplier || 1.0)
+      : 1.0;
+    workEffect.weeklyDrain = Math.round(getWeeklyBudgetDrain(tempMonth) * tempDirDrain * getKpiBudgetMultiplier(state.kpiState));
+
       setState(prev => {
         const pb = (prev.progressBonus || 0) + (prev.progressMomentum || 0) + (prev.activeBonus || 0);
         const hirePenalty = prev.hireBurdenWeeksLeft > 0 ? prev.hireBurdenRate : 0;
-        const teamCoeff = getTeamProgressCoeff(prev.teamSlots);
-        let newProgress = Math.min(100, Math.max(0, prev.progress + BASE_PROGRESS + (choice.effects.progress || 0) + mode.progressBonus + pb - hirePenalty));
+        const teamCoeff = getTeamProgressCoeff(prev.teamSlots, prev.gameDirection);
+        let newProgress = Math.min(100, Math.max(0, prev.progress + Math.round(BASE_PROGRESS * teamCoeff) + (choice.effects.progress || 0) + mode.progressBonus + pb - hirePenalty));
         let moraleDelta = (choice.effects.morale || 0) - moralePenalty;
-        if (moraleDelta < 0) moraleDelta = Math.round(moraleDelta * healthTier.dmgMult);
+        if (moraleDelta < 0) {
+          const kpiMult = prev.kpiState === "tight" ? 1.15 : prev.kpiState === "loose" ? 0.9 : 1.0;
+          moraleDelta = Math.round(moraleDelta * kpiMult);
+        }
+        moraleDelta = Math.round(moraleDelta * healthTier.dmgMult);
         let newMorale = Math.min(100, Math.max(0, prev.morale + moraleDelta));
         const newWeek = prev.week + 1;
         const month = Math.ceil(newWeek / 4);
@@ -2512,7 +2742,11 @@ export default function App() {
                           * getPeopleDecayMultiplier(prev.people)
                           * (prev.bossTrust >= 8 ? 0.8 : 1.0);
         newMorale = Math.max(0, newMorale - weeklyDecay);
-        let newBudget = Math.min(100, Math.max(0, prev.budget + (choice.effects.budget || 0) - budgetCost - getWeeklyBudgetDrain(month)));
+        const directionDrainMult = prev.gameDirection
+          ? (DIRECTION_TEAM_SCALE[prev.gameDirection]?.budgetDrainMultiplier || 1.0)
+          : 1.0;
+        const weeklyDrain = Math.round(getWeeklyBudgetDrain(month) * directionDrainMult * getKpiBudgetMultiplier(prev.kpiState));
+        let newBudget = Math.min(100, Math.max(0, prev.budget + (choice.effects.budget || 0) - budgetCost - weeklyDrain));
       const expectedProgress = (newWeek / TOTAL_WEEKS) * 100;
       const newMomentum = newProgress > expectedProgress + 10 ? 1 : newProgress < expectedProgress - 10 ? -1 : 0;
       const newPending = [...(prev.pendingEvents || [])];
@@ -2643,7 +2877,7 @@ export default function App() {
       if (choice.action === "ipProtect") {
         newIpProtectCount = Math.max(0, prev.ipProtectCount - 1);
       }
-      return { ...prev, week: newWeek, progress: newProgress, morale: newMorale, budget: newBudget, gamePhase, loseReason, survived: prev.survived + 1, pendingEvents: newPending, progressMomentum: newMomentum, confidant: newConfidant, verifyUsedThisMonth: newVerify, lucidConfidant: newLucidConfidant, scheduledEvents: newScheduled, lucidPhase1, lucidTriggered, hireBurdenWeeksLeft: newHireBurdenWeeksLeft, hireBurdenRate: prev.hireBurdenRate, hireScale: prev.hireScale, problemEmployee: prev.problemEmployee, activeBonus: prev.activeBonus, bossTrust: Math.min(10, Math.max(0, prev.bossTrust + effectBossTrust)), manpowerTriggered: prev.manpowerTriggered, qualityDebt: newQualityDebt, teamSlots: newTeamSlots, overtimeThisWeek: false, honestyHintShown: newHonestyHintShown, qualityHintShown: newQualityHintShown, ipProtectCount: newIpProtectCount };
+      return { ...prev, week: newWeek, progress: newProgress, morale: newMorale, budget: newBudget, gamePhase, loseReason, survived: prev.survived + 1, pendingEvents: newPending, progressMomentum: newMomentum, confidant: newConfidant, verifyUsedThisMonth: newVerify, lucidConfidant: newLucidConfidant, scheduledEvents: newScheduled, lucidPhase1, lucidTriggered, hireBurdenWeeksLeft: newHireBurdenWeeksLeft, hireBurdenRate: prev.hireBurdenRate, hireScale: prev.hireScale, problemEmployee: prev.problemEmployee, activeBonus: prev.activeBonus, bossTrust: Math.min(10, Math.max(0, prev.bossTrust + effectBossTrust)), manpowerTriggered: prev.manpowerTriggered, qualityDebt: newQualityDebt, teamSlots: newTeamSlots, overtimeThisWeek: false, honestyHintShown: newHonestyHintShown, qualityHintShown: newQualityHintShown, ipProtectCount: newIpProtectCount, usedActions: [], lastManageUpResult: null };
     });
 
     setPieCount(newPieCount);
@@ -2685,7 +2919,12 @@ export default function App() {
     if (curWeek % 4 === 1 && curWeek <= 21) {
       const month = Math.ceil((curWeek - 1) / 4);
       const delta = Math.round(state.progress - monthStartProgress);
-      setMonthSummaryData({ month, delta, progress: state.progress, weeksLeft: TOTAL_WEEKS - curWeek });
+      const teamSize = state.teamSlots.filter(s => s !== null).length;
+      const weeklyDecay = getMoraleDecay(state.qualityDebt, teamSize, month)
+                        * getPeopleDecayMultiplier(state.people)
+                        * (state.bossTrust >= 8 ? 0.8 : 1.0);
+      const monthlyMoraleDecay = Math.round(weeklyDecay * 4);
+      setMonthSummaryData({ month, delta, progress: state.progress, weeksLeft: TOTAL_WEEKS - curWeek, monthlyMoraleDecay });
       setShowMonthSummary(true);
       setMonthStartProgress(state.progress);
     } else {
@@ -2777,12 +3016,15 @@ export default function App() {
        }
        
        if (prev.morale < 20) {
-         newBossTrust = Math.max(0, newBossTrust - 2);
-       } else if (prev.morale < 35) {
-         newBossTrust = Math.max(0, newBossTrust - 1);
-       }
-       
-       if (prev.qualityDebt > 50) {
+          newBossTrust = Math.max(0, newBossTrust - 2);
+        } else if (prev.morale < 35) {
+          newBossTrust = Math.max(0, newBossTrust - 1);
+        }
+        
+        if (newKpiState === "tight") newBossTrust = Math.max(0, newBossTrust - 1);
+        if (newKpiState === "loose") newBossTrust = Math.min(10, newBossTrust + 1);
+        
+        if (prev.qualityDebt > 50) {
          prev.quality = Math.max(0, prev.quality - 1);
        }
        
@@ -2831,6 +3073,9 @@ export default function App() {
   if (appPhase === "cards") return (
     <CardScreen step={cardStep} pickedCards={pickedCards} onPick={handleCardPick} onNext={handleCardNext} />
   );
+  if (appPhase === "onboarding") return (
+    <OnboardingScreen pickedCards={pickedCards} onDone={handleOnboardingDone} />
+  );
 
   const phase = [...PHASE_LABELS].reverse().find(p => state.progress >= p.min)?.label || "概念原型期";
   const weeksLeft = TOTAL_WEEKS - state.week;
@@ -2841,7 +3086,7 @@ export default function App() {
       <div style={s.endWrap}>
         <div style={{ fontSize: 72 }}>👑</div>
         <div style={{ fontSize: 22, fontWeight: 700, color: "#facc15", margin: "12px 0 6px" }}>传奇制作人</div>
-        <div style={{ color: "#acacac", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
+        <div style={{ color: "#c7c7c7", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
         <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
           你扛住了 <span style={{ color: "#c084fc" }}>{state.survived} 个延期人格</span> 的轮番骚扰，成功把游戏送上线。<br /><br />你做到了，而且你知道为什么。
         </div>
@@ -2855,7 +3100,7 @@ export default function App() {
       <div style={s.endWrap}>
         <div style={{ fontSize: 72 }}>🏆</div>
         <div style={{ fontSize: 22, fontWeight: 700, color: "#a78bfa", margin: "12px 0 6px" }}>优秀制作人</div>
-        <div style={{ color: "#acacac", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
+        <div style={{ color: "#c7c7c7", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
         <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
           你扛住了 <span style={{ color: "#c084fc" }}>{state.survived} 个延期人格</span> 的轮番骚扰，成功把游戏送上线。<br /><br />你做到了。有些人知道代价。
         </div>
@@ -2869,7 +3114,7 @@ export default function App() {
       <div style={s.endWrap}>
         <div style={{ fontSize: 72 }}>🎮</div>
         <div style={{ fontSize: 22, fontWeight: 700, color: "#4ade80", margin: "12px 0 6px" }}>大赚特赚</div>
-        <div style={{ color: "#acacac", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
+        <div style={{ color: "#c7c7c7", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
         <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
           你扛住了 <span style={{ color: "#c084fc" }}>{state.survived} 个延期人格</span> 的轮番骚扰，成功把游戏送上线。<br /><br />你做到了。但你不确定值不值得。
         </div>
@@ -2883,7 +3128,7 @@ export default function App() {
       <div style={s.endWrap}>
         <div style={{ fontSize: 72 }}>📦</div>
         <div style={{ fontSize: 22, fontWeight: 700, color: "#94a3b8", margin: "12px 0 6px" }}>中规中矩</div>
-        <div style={{ color: "#acacac", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
+        <div style={{ color: "#c7c7c7", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
         <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
           你扛住了 <span style={{ color: "#c084fc" }}>{state.survived} 个延期人格</span> 的轮番骚扰，成功把游戏送上线。<br /><br />你做到了。但有些东西，活不了。
         </div>
@@ -2897,7 +3142,7 @@ export default function App() {
       <div style={s.endWrap}>
         <div style={{ fontSize: 72 }}>💥</div>
         <div style={{ fontSize: 22, fontWeight: 700, color: "#f87171", margin: "12px 0 6px" }}>叫好不叫座</div>
-        <div style={{ color: "#acacac", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
+        <div style={{ color: "#c7c7c7", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
         <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
           所有人都说这个方向没有未来。<br /><br />你做了，上线了。<br />数据证明他们是对的。<br /><br />你关掉数据分析后台，去喝了一杯酒。
         </div>
@@ -2911,7 +3156,7 @@ export default function App() {
       <div style={s.endWrap}>
         <div style={{ fontSize: 72 }}>🔥</div>
         <div style={{ fontSize: 22, fontWeight: 700, color: "#f97316", margin: "12px 0 6px" }}>逆势突围</div>
-        <div style={{ color: "#acacac", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
+        <div style={{ color: "#c7c7c7", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
         <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
           所有人都说这个方向没有未来。<br /><br />你没有辩解，只是做完了。<br /><br />上线那天，你翻出了当时那个沙龙的聊天记录，没有回复任何人。<br /><br />数据会说话。
         </div>
@@ -2925,9 +3170,9 @@ export default function App() {
       <div style={s.endWrap}>
         <div style={{ fontSize: 72 }}>📦</div>
         <div style={{ fontSize: 22, fontWeight: 700, color: "#f87171", margin: "12px 0 6px" }}>项目延期了</div>
-        <div style={{ color: "#acacac", fontSize: 14, marginBottom: 6 }}>{timeLabel}</div>
+        <div style={{ color: "#c7c7c7", fontSize: 14, marginBottom: 6 }}>{timeLabel}</div>
         <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 6 }}>{state.loseReason}</div>
-        <div style={{ color: "#acacac", fontSize: 14, marginBottom: 24 }}>撑过了 {state.survived} 个延期人格，进度达到 {state.progress}%</div>
+        <div style={{ color: "#c7c7c7", fontSize: 14, marginBottom: 24 }}>撑过了 {state.survived} 个延期人格，进度达到 {state.progress}%</div>
         <button onClick={restart} style={s.endBtn}>重新开始</button>
       </div>
     </div>
@@ -2940,11 +3185,11 @@ export default function App() {
     <div style={s.header}>
       <div>
         <div style={{ fontSize: 14, fontWeight: 700, color: "#ddd", letterSpacing: "0.03em" }}>完蛋！我被延期包围了</div>
-        <div style={{ fontSize: 12, color: "#acacac", marginTop: 1 }}>{phase}</div>
+        <div style={{ fontSize: 12, color: "#c7c7c7", marginTop: 1 }}>{phase}</div>
       </div>
       <div style={{ textAlign: "right" }}>
-        <div style={{ fontSize: 13, fontFamily: "monospace", color: weeksLeft < 4 ? "#f87171" : "#acacac" }}>{timeLabel}</div>
-        <div style={{ fontSize: 12, color: weeksLeft < 4 ? "#7f1d1d" : "#acacac", marginTop: 1 }}>剩余 {Math.max(0, weeksLeft)} 周</div>
+        <div style={{ fontSize: 13, fontFamily: "monospace", color: weeksLeft < 4 ? "#f87171" : "#c7c7c7" }}>{timeLabel}</div>
+        <div style={{ fontSize: 12, color: weeksLeft < 4 ? "#7f1d1d" : "#c7c7c7", marginTop: 1 }}>剩余 {Math.max(0, weeksLeft)} 周</div>
         {state.progressMomentum !== 0 && (
           <div style={{ fontSize: 12, fontFamily: "monospace", marginTop: 2, color: state.progressMomentum > 0 ? "#4ade80" : "#f87171" }}>
             {state.progressMomentum > 0 ? "📈 进度超前 +1" : "📉 进度落后 -1"}
@@ -2985,23 +3230,29 @@ export default function App() {
        <div style={s.statsRow}>
          <StatBar label="📈 进度" value={state.progress} color="#4ade80" onClick={() => setActiveTip(activeTip === "progress" ? null : "progress")} />
          <div style={{ width: 10 }} />
-         <StatBar label="💪 士气" value={state.morale} color="#fb923c" onClick={() => setActiveTip(activeTip === "morale" ? null : "morale")} />
+          <StatBar label="💪 士气" value={state.morale} displayValue={Math.round(state.morale)} color="#fb923c" onClick={() => setActiveTip(activeTip === "morale" ? null : "morale")} />
          <div style={{ width: 10 }} />
          <StatBar label="💰 预算" value={state.budget} color="#60a5fa" onClick={() => setActiveTip(activeTip === "budget" ? null : "budget")} />
          <div style={{ width: 10 }} />
          <StatBar label="⭐ 信任" value={state.bossTrust * 10} displayValue={state.bossTrust} color="#facc15" onClick={() => setActiveTip(activeTip === "trust" ? null : "trust")} />
-       </div>
-       <div style={{ padding: "8px 18px", background: "#08080f", borderBottom: "1px solid #0e0e1e", cursor: "pointer" }} onClick={() => setActiveTip(activeTip === "health" ? null : "health")}>
-         <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontFamily: "monospace", color: "#acacac" }}>
+        </div>
+        {state.kpiState !== "normal" && (
+          <div style={{ padding: "6px 18px", fontSize: 12, fontFamily: "monospace", color: state.kpiState === "tight" ? "#f87171" : "#4ade80", background: state.kpiState === "tight" ? "#1a0505" : "#051a05" }}>
+            {state.kpiState === "tight" && "⚠ 老板盯得紧：预算消耗+30%，士气伤害+15%"}
+            {state.kpiState === "loose" && "✦ 老板放权：预算消耗-10%，士气伤害-10%"}
+          </div>
+        )}
+        <div style={{ padding: "8px 18px", background: "#08080f", borderBottom: "1px solid #0e0e1e", cursor: "pointer" }} onClick={() => setActiveTip(activeTip === "health" ? null : "health")}>
+         <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontFamily: "monospace", color: "#c7c7c7" }}>
            <span>{healthTier.emoji}</span>
            <span>产品健康度</span>
            <span style={{ flex: 1 }} />
-           <span style={{ color: healthTier.tier === "downdown" ? "#f87171" : healthTier.tier === "down" ? "#f97316" : healthTier.tier === "upup" ? "#4ade80" : "#acacac" }}>{healthTier.label}</span>
+           <span style={{ color: healthTier.tier === "downdown" ? "#f87171" : healthTier.tier === "down" ? "#f97316" : healthTier.tier === "upup" ? "#4ade80" : "#c7c7c7" }}>{healthTier.label}</span>
            <span>{activeTip === "health" ? "▲" : "▼"}</span>
          </div>
        </div>
        {activeTip === "health" && (
-         <div style={{ background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 8, margin: "-8px 18px 8px", padding: "10px 14px", fontSize: 13, color: "#acacac", fontFamily: "monospace", lineHeight: 1.8 }}>
+         <div style={{ background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 8, margin: "-8px 18px 8px", padding: "10px 14px", fontSize: 13, color: "#c7c7c7", fontFamily: "monospace", lineHeight: 1.8 }}>
            {healthTier.tier === "upup" && <>团队信心足，关怀行动效果 ×1.15</>}
            {healthTier.tier === "down" && <>方向存疑，关怀效果 ×0.85，事件士气伤害 ×1.1</>}
            {healthTier.tier === "downdown" && <>信心崩塌，关怀效果 ×0.7，事件士气伤害 ×1.2，每周自然流失 -2</>}
@@ -3009,7 +3260,7 @@ export default function App() {
          </div>
        )}
       {activeTip === "progress" && (
-        <div style={{ background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 8, padding: "10px 14px", margin: "-8px 18px 8px", fontSize: 13, color: "#acacac", fontFamily: "monospace", lineHeight: 1.8 }}>
+        <div style={{ background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 8, padding: "10px 14px", margin: "-8px 18px 8px", fontSize: 13, color: "#c7c7c7", fontFamily: "monospace", lineHeight: 1.8 }}>
           📈 进度<br />
           达到 100% 游戏上线，这是唯一的胜利条件。<br />
           每周基础 +3 · 冲进度行动 +3 · 事件影响不定<br />
@@ -3017,7 +3268,7 @@ export default function App() {
         </div>
       )}
       {activeTip === "morale" && (
-        <div style={{ background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 8, padding: "10px 14px", margin: "-8px 18px 8px", fontSize: 13, color: "#acacac", fontFamily: "monospace", lineHeight: 1.8 }}>
+        <div style={{ background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 8, padding: "10px 14px", margin: "-8px 18px 8px", fontSize: 13, color: "#c7c7c7", fontFamily: "monospace", lineHeight: 1.8 }}>
           💪 士气<br />
           归零：团队集体摆烂，项目解散。<br />
           &lt; 35：危机安抚行动解锁（2AP，+25士气）<br />
@@ -3026,7 +3277,7 @@ export default function App() {
         </div>
       )}
       {activeTip === "budget" && (
-        <div style={{ background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 8, padding: "10px 14px", margin: "-8px 18px 8px", fontSize: 13, color: "#acacac", fontFamily: "monospace", lineHeight: 1.8 }}>
+        <div style={{ background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 8, padding: "10px 14px", margin: "-8px 18px 8px", fontSize: 13, color: "#c7c7c7", fontFamily: "monospace", lineHeight: 1.8 }}>
           💰 预算<br />
           归零：项目被砍，直接失败。<br />
           &lt; 25：紧急融资行动解锁（3AP，+18~32预算）<br />
@@ -3035,7 +3286,7 @@ export default function App() {
         </div>
       )}
       {activeTip === "trust" && (
-        <div style={{ background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 8, padding: "10px 14px", margin: "-8px 18px 8px", fontSize: 13, color: "#acacac", fontFamily: "monospace", lineHeight: 1.8 }}>
+        <div style={{ background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 8, padding: "10px 14px", margin: "-8px 18px 8px", fontSize: 13, color: "#c7c7c7", fontFamily: "monospace", lineHeight: 1.8 }}>
           ⭐ 老板信任度（0-10）<br />
           0：触发「谈话」事件，可能直接失败。<br />
           ≤ 2：每月底预算自动 -5，他在打听你的项目<br />
@@ -3045,14 +3296,19 @@ export default function App() {
           初始值随机（3-8）
          </div>
        )}
-       <div onClick={() => setTeamPanelExpanded(!teamPanelExpanded)} style={{ padding: "10px 18px", background: "#08080f", borderBottom: "1px solid #0e0e1e", cursor: "pointer" }}>
-         <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontFamily: "monospace", color: "#acacac" }}>
-           <span>👥</span>
-           <span>团队 {state.teamSlots.length}/6</span>
-           <span style={{ flex: 1 }} />
-           <span>{teamPanelExpanded ? "▲" : "▼"}</span>
-         </div>
-       </div>
+<div onClick={() => setTeamPanelExpanded(!teamPanelExpanded)} style={{ padding: "10px 18px", background: "#08080f", borderBottom: "1px solid #0e0e1e", cursor: "pointer" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontFamily: "monospace", color: "#c7c7c7" }}>
+            <span>👥</span>
+            <span>核心团队 {state.teamSlots.length}/6</span>
+            {state.gameDirection && DIRECTION_TEAM_SCALE[state.gameDirection] ? (
+              <span style={{ color: "#666" }}>· 项目 {DIRECTION_TEAM_SCALE[state.gameDirection].projectTeamSize}人</span>
+            ) : (
+              <span style={{ color: "#666" }}>· 项目 --人</span>
+            )}
+            <span style={{ flex: 1 }} />
+            <span>{teamPanelExpanded ? "▲" : "▼"}</span>
+          </div>
+        </div>
        {teamPanelExpanded && state.teamSlots.length > 0 && (
          <div style={{ background: "#0c0c18", padding: "8px 18px", borderBottom: "1px solid #0e0e1e" }}>
            {state.teamSlots.map(member => {
@@ -3165,7 +3421,7 @@ export default function App() {
                {layoffPendingMember && (
                  <div style={{ background: "#1a1212", border: "1px solid #2a1a1a", borderRadius: 10, padding: "14px", marginTop: 12 }}>
                    <div style={{ fontSize: 15, fontWeight: 700, color: "#f87171", marginBottom: 8 }}>⚠️ 确认清洗</div>
-                   <div style={{ fontSize: 14, color: "#acacac", lineHeight: 1.7, marginBottom: 14 }}>
+                   <div style={{ fontSize: 14, color: "#c7c7c7", lineHeight: 1.7, marginBottom: 14 }}>
                      确认清洗这名成员？此操作不可逆。
                      <div style={{ marginTop: 8, fontSize: 13, color: "#888" }}>
                        {ROLE_EMOJI[layoffPendingMember.role]} {ROLE_NAMES[layoffPendingMember.role]} · {SENIORITY_NAMES[layoffPendingMember.seniority]}
@@ -3184,7 +3440,7 @@ export default function App() {
                
                {layoffConfirmMember && (
                  <div style={{ background: "#1a1212", border: "1px solid #2a1a1a", borderRadius: 10, padding: "14px", marginTop: 12 }}>
-                   <div style={{ fontSize: 14, color: "#acacac", lineHeight: 1.7 }}>
+                   <div style={{ fontSize: 14, color: "#c7c7c7", lineHeight: 1.7 }}>
                      他离开了。没有人说什么。
                    </div>
                    <button onClick={handleCloseLayoffResult} style={{ width: "100%", marginTop: 12, padding: "10px 14px", background: "#0c0c18", border: "1px solid #2a2a3a", color: "#888", borderRadius: 8, fontSize: 14, cursor: "pointer" }}>
@@ -3195,7 +3451,7 @@ export default function App() {
              </div>
             <div style={{ marginTop: 16 }}>
               {apLeft > 0 && (
-                <div style={{ fontSize: 12, color: "#acacac", fontFamily: "monospace", marginBottom: 8 }}>
+                <div style={{ fontSize: 12, color: "#c7c7c7", fontFamily: "monospace", marginBottom: 8 }}>
                   你还有 {apLeft} AP 未使用，它们不会被累积到下一周。
                 </div>
               )}
@@ -3215,7 +3471,7 @@ export default function App() {
                    <div style={{ ...s.charGlow, background: `radial-gradient(ellipse at 50% 60%, ${event.color}18 0%, transparent 65%)` }} />
                    <div style={{ fontSize: 52, position: "relative", zIndex: 1, animation: "floatIn 0.4s ease" }}>{event.emoji}</div>
                    <div style={{ color: event.color, fontSize: 15, fontWeight: 700, position: "relative", zIndex: 1 }}>{event.name}</div>
-                   <div style={{ color: "#acacac", fontSize: 12, position: "relative", zIndex: 1, marginTop: 2 }}>{event.tagline}</div>
+                   <div style={{ color: "#c7c7c7", fontSize: 12, position: "relative", zIndex: 1, marginTop: 2 }}>{event.tagline}</div>
                  </div>
                )}
 
@@ -3225,7 +3481,7 @@ export default function App() {
                  </div>
                ) : (
                  <div style={s.dialogueBox}>
-                   <div style={{ fontSize: 12, color: "#acacac", marginBottom: 6 }}>{event.situation}</div>
+                   <div style={{ fontSize: 12, color: "#c7c7c7", marginBottom: 6 }}>{event.situation}</div>
                    <div style={{ fontSize: 15, color: "#ccc", lineHeight: 1.7 }}>{event.dialogue}</div>
                  </div>
                )}
@@ -3238,7 +3494,7 @@ export default function App() {
                     }));
                     setEvent(pickEvent({ ...state, narrationsUsed: [...(state.narrationsUsed || []), event.narrateKey] }));
                     setAnimKey(k => k + 1);
-                  }} style={{ ...s.choiceBtn, borderColor: "#2a2a3e", justifyContent: "center", color: "#acacac" }}>
+                  }} style={{ ...s.choiceBtn, borderColor: "#2a2a3e", justifyContent: "center", color: "#c7c7c7" }}>
                     继续 →
                   </button>
                 ) : !showResult ? (
@@ -3406,21 +3662,31 @@ export default function App() {
                        🤝 {lastConfidantReveal}
                      </div>
                    )}
-                   {lastBossReaction && (
-                     <div style={{ fontSize: 12, color: "#acacac", marginTop: 6, marginBottom: 8 }}>
-                       {lastBossReaction}
-                     </div>
-                   )}
-                   {lastEffects && (
-                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8, paddingTop: lastConfidantReveal || lastBossReaction ? 0 : 8, borderTop: lastConfidantReveal || lastBossReaction ? "none" : "1px solid #1a1a2e" }}>
-                       <EffectBadge value={(lastEffects.progress || 0) + BASE_PROGRESS + (state.progressBonus || 0)} label="进度" />
-                       <EffectBadge value={lastEffects.morale || 0} label="士气" />
-                       <EffectBadge value={lastEffects.budget || 0} label="预算" />
-                     </div>
-                   )}
-                   {lastWorkEffect && lastWorkEffect.workMode !== "normal" && (
+                    {lastBossReaction && (
+                      <div style={{ fontSize: 12, color: "#c7c7c7", marginTop: 6, marginBottom: 8 }}>
+                        {lastBossReaction}
+                      </div>
+                    )}
+                    {state.lastManageUpResult && (
+                      <div style={{ fontSize: 14, color: state.lastManageUpResult === "success" ? "#4ade80" : "#f87171", fontFamily: "monospace", padding: "8px 10px", background: state.lastManageUpResult === "success" ? "#052e16" : "#450a0a", borderRadius: 6, marginBottom: 8 }}>
+                        {state.lastManageUpResult === "success" ? "「上面对你的工作表示认可。」+1 信任" : "「上面今天没有心情听你汇报。」-1 信任"}
+                      </div>
+                    )}
+                    {lastEffects && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8, paddingTop: lastConfidantReveal || lastBossReaction ? 0 : 8, borderTop: lastConfidantReveal || lastBossReaction ? "none" : "1px solid #1a1a2e" }}>
+                        <EffectBadge value={(lastEffects.progress || 0) + BASE_PROGRESS + (state.progressBonus || 0)} label="进度" />
+                        <EffectBadge value={lastEffects.morale || 0} label="士气" />
+                        <EffectBadge value={lastEffects.budget || 0} label="预算" />
+                      </div>
+                    )}
+                    {lastWorkEffect && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                        <EffectBadge value={-lastWorkEffect.weeklyDrain} label="周消耗" />
+                      </div>
+                    )}
+                    {lastWorkEffect && lastWorkEffect.workMode !== "normal" && (
                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12, paddingTop: 8, borderTop: "1px solid #1a1a2e" }}>
-                      <span style={{ fontSize: 12, color: "#acacac", width: "100%", fontFamily: "monospace" }}>{WORK_MODES[lastWorkEffect.workMode].emoji} {WORK_MODES[lastWorkEffect.workMode].label}</span>
+                      <span style={{ fontSize: 12, color: "#c7c7c7", width: "100%", fontFamily: "monospace" }}>{WORK_MODES[lastWorkEffect.workMode].emoji} {WORK_MODES[lastWorkEffect.workMode].label}</span>
                       <EffectBadge value={lastWorkEffect.progressBonus} label="进度" />
                       {lastWorkEffect.overtimeType === "pay"
                         ? <EffectBadge value={-lastWorkEffect.budgetCost} label="预算" />
@@ -3429,7 +3695,7 @@ export default function App() {
                     </div>
                   )}
                   <button onClick={nextEvent} style={{ ...s.choiceBtn, borderColor: "#2a2a3a", textAlign: "center", justifyContent: "center", color: "#888" }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = "#acacac"; e.currentTarget.style.color = "#ccc"; }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "#c7c7c7"; e.currentTarget.style.color = "#ccc"; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = "#2a2a3a"; e.currentTarget.style.color = "#888"; }}>
                     下一位来访者 →
                   </button>
