@@ -225,7 +225,7 @@ function buildInitialState(pickedCards) {
     ipActive = true;
   }
   
-  let s = { week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust: Math.floor(Math.random() * 6) + 3, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, directionChosen: false, directionDelayPenalty: false, marketYear, companySize, kpiState: "normal", ipType, ipActive, ipProtectUsed: 0, ipProtectCount: ipType === "strong" ? 2 : 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, honestyHintShown: false, peopleHintShown: false, qualityHintShown: false, usedActions: [], lastManageUpResult: null };
+  let s = { week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust: Math.floor(Math.random() * 6) + 3, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, directionChosen: false, directionDelayPenalty: false, marketYear, companySize, kpiState: "normal", ipType, ipActive, ipProtectUsed: 0, ipProtectCount: ipType === "strong" ? 2 : 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, fakeProgress: 0, honestyHintShown: false, peopleHintShown: false, qualityHintShown: false, usedActions: [], lastManageUpResult: null };
   for (const card of pickedCards) { if (card) s = card.init(s); }
   return s;
 }
@@ -1547,6 +1547,7 @@ const YEAR_DATA = {
   2017: {
     hot: ["ROMANCE", "SLG", "BATTLE_ROYALE"],
     mocked: "CARD",
+    mustInclude: "BATTLE_ROYALE",
     catchphrase: "女性向是蓝海，SLG买量永动机",
     representatives: ["恋与制作人", "乱世王者"],
     mockedFlavor: "「二次元卡牌退烧了，你现在还做这个？」",
@@ -1656,6 +1657,15 @@ const UNLOCK_TABLE = [
     selectBonus: { matchThresholdDelta: -5 },
     inPoolBonus: { progressEfficiencyMultiplier: 1.1 },
     pitch: "别人说做不到，但你知道技术上是可行的。",
+  },
+  {
+    playerBackground: "engineer",
+    industryBackground: null,
+    direction: "BATTLE_ROYALE",
+    years: [2017, 2018],
+    selectBonus: { qualityDebtDelta: -10 },
+    inPoolBonus: { qualityDebtDelta: -5 },
+    pitch: "同步架构和服务器优化，技术是吃鸡游戏的核心竞争力。",
   },
   {
     playerBackground: "artist",
@@ -1780,13 +1790,18 @@ function buildDirectionPool(marketYear, playerBackground, industryBackground) {
 
   const hot = year.hot;
   const mocked = year.mocked;
+  const mustInclude = year.mustInclude;
 
   let basePool;
   if (hot.length <= 2) {
     basePool = [...hot, mocked].filter(Boolean);
   } else {
-    const secondary = hot[1 + Math.floor(Math.random() * (hot.length - 1))];
+    const remainingHot = hot.slice(1).filter(d => d !== mustInclude);
+    const secondary = remainingHot[Math.floor(Math.random() * remainingHot.length)];
     basePool = [hot[0], mocked, secondary];
+    if (mustInclude && !basePool.includes(mustInclude)) {
+      basePool.push(mustInclude);
+    }
   }
 
   const unlocks = getBackgroundUnlock(playerBackground, industryBackground, marketYear);
