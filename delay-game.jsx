@@ -751,7 +751,7 @@ const EVENTS = [
     choices: [
       { text: "全力融入，方向转型",                effects: { progress: -6, morale: 3, budget: -5, bossTrust: 2, qualityDebt: 8 }, hidden: { judgment: -1 }, result: "兴奋持续了三天。团队发现转型意味着三个月白干。" },
       { text: "表面融入，加个「探索模式」",        effects: { progress: -2, morale: -2, budget: -3, bossTrust: 1, qualityDebt: 5 }, hidden: { honesty: -1 }, result: "做出了一个四不像。玩家不买账，老板也不满意。" },
-      { text: "礼貌拒绝，坚守核心方向",            effects: { progress: 1, morale: -5, budget: 0, bossTrust: -2 }, hidden: { judgment: 1, grit: 1 }, result: "老板有点不开心。但项目没乱。六个月后那个热点凉了。" },
+      { text: "礼貌拒绝，坚守核心方向",            effects: { progress: 1, morale: -5, budget: 0, bossTrust: -2 }, hidden: { judgment: 1, grit: 1 }, result: "老板有点不开心。但项目没乱。不久后那个热点凉了。" },
     ]
   },
   // ---- P3 新事件 ----
@@ -763,7 +763,7 @@ const EVENTS = [
     choices: [
       { text: "召开全员会议，稳定军心",      effects: { progress: -1, morale: -5, budget: 0, bossTrust: 2 }, hidden: { people: 1 }, result: "你说了很多鼓励的话。大家礼貌地鼓了掌。士气还是跌了。" },
       { text: "加大画饼，许诺上线奖励",      effects: { progress: 1, morale: -3, budget: 0, bossTrust: -2, qualityDebt: 3 }, hidden: { honesty: -1 }, result: "一半人信了。另一半人开始悄悄更新简历。" },
-      { text: "自掏腰包补贴几个核心成员",    effects: { progress: 1, morale: 8, budget: -15, bossTrust: 2 }, hidden: { people: 1, grit: 1 }, result: "你赢得了一些心。代价是你自己的腰包。" },
+      { text: "私下里补贴几个核心成员",    effects: { progress: 1, morale: 8, budget: -15, bossTrust: 2 }, hidden: { people: 1, grit: 1 }, result: "你赢得了一些信心。代价是项目的预算。" },
     ]
   },
   {
@@ -1419,19 +1419,19 @@ function CardScreen({ step, pickedCards, onPick, onNext }) {
       <style>{`
         @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
-      <div style={{ fontSize: 12, color: "#c7c7c7", fontFamily: "monospace", marginBottom: 12, animation: "fadeUp 0.35s ease both" }}>
+      <div style={{ fontSize: 12, color: "#c7c7c7", fontFamily: "monospace", marginBottom: 12, animation: "fadeUp 0.35s ease 0s forwards", opacity: 0 }}>
         {step + 1} / {activeGroups.length}
       </div>
-      <div style={{ fontSize: 17, fontWeight: 700, color: "#999", marginBottom: 4, animation: "fadeUp 0.35s ease 0.1s both" }}>{group.title}</div>
+      <div style={{ fontSize: 17, fontWeight: 700, color: "#999", marginBottom: 4, animation: "fadeUp 0.35s ease 0.1s forwards", opacity: 0 }}>{group.title}</div>
       {group.subtitle
-        ? <div style={{ fontSize: 12, color: "#6a6a7a", marginBottom: 20, fontStyle: "italic", animation: "fadeUp 0.35s ease 0.2s both" }}>{group.subtitle}</div>
+        ? <div style={{ fontSize: 12, color: "#6a6a7a", marginBottom: 20, fontStyle: "italic", animation: "fadeUp 0.35s ease 0.2s forwards", opacity: 0 }}>{group.subtitle}</div>
         : <div style={{ marginBottom: 20 }} />
       }
       <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
         {group.cards.map((card, cardIdx) => {
           const isSelected = picked?.id === card.id;
           return (
-            <button key={card.id} onClick={() => !picked && onPick(step, card)} style={{ flex: 1, padding: "16px 10px", background: isSelected ? "#0d1a0d" : "#0c0c18", border: `1px solid ${isSelected ? "#166534" : "#1e1e2e"}`, borderRadius: 10, cursor: picked ? "default" : "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, transition: "all 0.2s", animation: `fadeUp 0.35s ease ${0.25 + cardIdx * 0.1}s both` }}
+            <button key={card.id} onClick={() => !picked && onPick(step, card)} style={{ flex: 1, padding: "16px 10px", background: isSelected ? "#0d1a0d" : "#0c0c18", border: `1px solid ${isSelected ? "#166534" : "#1e1e2e"}`, borderRadius: 10, cursor: picked ? "default" : "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, transition: "all 0.2s", animation: `fadeUp 0.35s ease ${0.25 + cardIdx * 0.1}s forwards`, opacity: 0 }}
               onMouseEnter={e => !picked && (e.currentTarget.style.borderColor = "#4a4a7a")}
               onMouseLeave={e => !picked && !isSelected && (e.currentTarget.style.borderColor = "#1e1e2e")}>
               <span style={{ fontSize: 32 }}>{card.emoji}</span>
@@ -1441,13 +1441,13 @@ function CardScreen({ step, pickedCards, onPick, onNext }) {
         })}
       </div>
       {picked && (
-        <div style={{ background: "#0c0c18", border: "1px solid #1a2a1a", borderRadius: 10, padding: "12px 14px", marginBottom: 20, animation: "fadeUp 0.35s ease both" }}>
+        <div style={{ background: "#0c0c18", border: "1px solid #1a2a1a", borderRadius: 10, padding: "12px 14px", marginBottom: 20, animation: "fadeUp 0.35s ease 0s forwards", opacity: 0 }}>
           <div style={{ fontSize: 12, color: "#c7c7c7", marginBottom: 4, fontFamily: "monospace" }}>{picked.emoji} {picked.label}</div>
           <div style={{ fontSize: 15, color: "#4ade80", lineHeight: 1.6 }}>{picked.reveal}</div>
         </div>
       )}
       {picked && (
-        <button onClick={onNext} style={{ background: "#0c0c18", border: "1px solid #2a2a3a", color: "#888", borderRadius: 8, padding: "13px 14px", fontSize: 15, cursor: "pointer", width: "100%", transition: "all 0.15s", animation: "fadeUp 0.35s ease 0.25s both" }}
+        <button onClick={onNext} style={{ background: "#0c0c18", border: "1px solid #2a2a3a", color: "#888", borderRadius: 8, padding: "13px 14px", fontSize: 15, cursor: "pointer", width: "100%", transition: "all 0.15s", animation: "fadeUp 0.35s ease 0.25s forwards", opacity: 0 }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = "#4a4a7a"; e.currentTarget.style.color = "#ccc"; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = "#2a2a3a"; e.currentTarget.style.color = "#888"; }}>
           {step < activeGroups.length - 1 ? "下一张 →" : "开始制作！🚀"}
