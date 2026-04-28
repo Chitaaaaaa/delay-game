@@ -120,6 +120,31 @@ function weekDisplay(week) {
   return { month, weekOfMonth, label: `第${month}月 第${weekOfMonth}周` };
 }
 
+// ---- Patch 28-29 helpers ---------------------------------------------------
+
+function weightedRandomRole() {
+  const r = Math.random();
+  if (r < 0.40) return 'engineer';
+  if (r < 0.75) return 'designer';
+  return 'qa';
+}
+
+function randomSeniority() {
+  const pool = ['fresh', 'mid', 'veteran'];
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function computeContribution(role, seniority, gameDirection) {
+  const profile = gameDirection ? DIRECTION_TEAM_SCALE[gameDirection] : null;
+  if (seniority === "veteran") {
+    return { progressEfficiency: 1.2, moraleBase: 0, budgetCoeff: 1.3 };
+  }
+  if (seniority === "mid") {
+    return { progressEfficiency: 0.9, moraleBase: 2, budgetCoeff: 0.9 };
+  }
+  return { progressEfficiency: 0.5, moraleBase: -2, budgetCoeff: 0.5 };
+}
+
 // ---- Patch 19 helpers ------------------------------------------------------
 
 function getWeeklyBudgetDrain(month) {
@@ -349,7 +374,7 @@ function buildInitialState(pickedCards, legacyData, selectedNgYear) {
     bossTrust = Math.floor(Math.random() * 6) + 3;
   }
 
-  let s = { week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, directionChosen: false, directionDelayPenalty: false, marketYear, companySize, kpiState: "normal", ipType, ipActive, ipProtectUsed: 0, ipProtectCount: ipType === "strong" ? 2 : 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, fakeProgress: 0, honestyHintShown: false, peopleHintShown: false, qualityHintShown: false, usedActions: [], lastManageUpResult: null };
+  let s = { week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, projectHeadcount: 0, directionChosen: false, directionDelayPenalty: false, marketYear, companySize, kpiState: "normal", ipType, ipActive, ipProtectUsed: 0, ipProtectCount: ipType === "strong" ? 2 : 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, fakeProgress: 0, honestyHintShown: false, peopleHintShown: false, qualityHintShown: false, usedActions: [], lastManageUpResult: null };
   for (const card of pickedCards) { if (card) s = card.init(s); }
 
   if (legacyData) {
@@ -512,12 +537,16 @@ const ACTIONS = [
   { id: "verify", emoji: "🔎", label: "深入验收", ap: 2, desc: "解锁本月 milestone B 选项（看原始 build）", always: false,
     available: (s, ctx) => ctx.isMonthEnd && !s.verifyUsedThisMonth,
     apply: s => ({ ...s, verifyUsedThisMonth: true }) },
-  { id: "manage_up", emoji: "☕", label: "向上管理", ap: 2, desc: "老板信任度±1（概率）", always: true,
+  { id: "manage_up", emoji: "☕", label: "向上管理", ap: 2, desc: "老板信任度+1（低信任时失败无惩罚）", always: true,
     available: s => s.bossTrust < 10,
     apply: s => {
-      const successRate = s.bossTrust >= 7 ? 0.75 : s.bossTrust <= 3 ? 0.50 : 0.65;
+      const atFloor = s.bossTrust <= 1;
+      const successRate = s.bossTrust === 0 ? 1.0
+        : s.bossTrust >= 7 ? 0.75
+        : s.bossTrust <= 3 ? 0.50
+        : 0.65;
       const success = Math.random() < successRate;
-      const trustGain = success ? 1 : -1;
+      const trustGain = success ? 1 : (atFloor ? 0 : -1);
       return {
         ...s,
         bossTrust: Math.max(0, Math.min(10, s.bossTrust + trustGain)),
@@ -528,6 +557,23 @@ const ACTIONS = [
 ];
 
 // ---- events ----------------------------------------------------------------
+
+function getCompletionMessage(state) {
+  if (state.morale < 30)
+    return "进度到了。但团队……还撑得住最后一步吗？";
+  if (state.budget < 20)
+    return "进度到了。就差最后一步的钱了。";
+  if (state.bossTrust <= 2)
+    return "进度到了。就看上面最后怎么看你了。";
+  return "进度已满。下周，游戏就可以上线了——如果没有意外的话。";
+}
+
+function weightedRandomRole() {
+  const r = Math.random();
+  if (r < 0.40) return 'engineer';
+  if (r < 0.75) return 'designer';
+  return 'qa';
+}
 
 // ---- milestone helpers -----------------------------------------------------
 
@@ -898,7 +944,7 @@ const EVENTS = [
     choices: [
       { text: "全力融入，方向转型",                effects: { progress: -6, morale: 3, budget: -5, bossTrust: 2, qualityDebt: 8 }, hidden: { judgment: -1 }, result: "兴奋持续了三天。团队发现转型意味着三个月白干。" },
       { text: "表面融入，加个「探索模式」",        effects: { progress: -2, morale: -2, budget: -3, bossTrust: 1, qualityDebt: 5 }, hidden: { honesty: -1 }, result: "做出了一个四不像。玩家不买账，老板也不满意。" },
-      { text: "礼貌拒绝，坚守核心方向",            effects: { progress: 1, morale: -5, budget: 0, bossTrust: -2 }, hidden: { judgment: 1, grit: 1 }, result: "老板有点不开心。但项目没乱。不久后那个热点凉了。" },
+      { text: "礼貌拒绝，坚守核心方向",            effects: { progress: 2, morale: -5, budget: 0, bossTrust: -2 }, hidden: { judgment: 1, grit: 1 }, result: "老板有点不开心。但项目没乱。不久后那个热点凉了。" },
     ]
   },
   // ---- P3 新事件 ----
@@ -965,7 +1011,7 @@ ${count < need - 1 ? "现在不是效率问题，是有些事情根本没人做�
     choices: [
       {
         text: "赶工补上，核心团队顶上去。",
-        effects: { progress: 3, morale: -5, budget: 0, bossTrust: -1, qualityDebt: 10 },
+        effects: { progress: 3, morale: -5, budget: 0, bossTrust: -1 },
         result: "你让每个人多管一摊。进度是动了，但粗糙得让人心虚。",
         hidden: { grit: 1 },
       },
@@ -977,7 +1023,7 @@ ${count < need - 1 ? "现在不是效率问题，是有些事情根本没人做�
       },
       {
         text: "调整目标，做少做精。",
-        effects: { progress: -5, morale: 3, budget: 0, bossTrust: 2, qualityDebt: -5 },
+        effects: { progress: -5, morale: 3, budget: 0, bossTrust: 2 },
         result: "你砍了一些非核心需求。团队松了口气，但老板问你怎么进度慢了。",
         hidden: { judgment: 1 },
       },
@@ -1006,7 +1052,7 @@ function getTeamOvercrowdEvent(direction, count, profile) {
       },
       {
         text: "给闲置的人找事做——开拓新方向。",
-        effects: { progress: 3, morale: -2, budget: -5, bossTrust: -1, qualityDebt: 5 },
+        effects: { progress: 3, morale: -2, budget: -5, bossTrust: -1 },
         result: "多了几个副项目。主进度快了点，但精力更分散了。",
         hidden: { judgment: -1 },
       },
@@ -1525,7 +1571,7 @@ function NgPlusScreen({ legacyData, onNext }) {
     average: "「做完了。」",
     counter_win: "「做完了。情况特殊。」",
     bad_release: "「上线了。上面不太满意。」",
-    lose: "「上次的事老板知道。他说，再给你一次机会。」",
+    lose: "「上次的事老板知道。他说，再给你一次。」",
   };
   const tomLine = TomLines[legacyData.prevResult] || "「我们需要重新谈谈。」";
 
@@ -1611,7 +1657,26 @@ function NgYearScreen({ legacyData, selectedYear, onSelectYear, onNext }) {
       {selectedYear && (
         <div style={{ marginTop: 24 }}>
           <div style={{ borderTop: "1px solid #1a1a2e", marginBottom: 16 }}></div>
-          <div style={{ fontSize: 13, color: "#4ade80", fontFamily: "monospace", marginBottom: 16 }}>
+          {(() => {
+            const yearData = YEAR_DATA[selectedYear];
+            if (yearData && yearData.hot && yearData.hot.length > 0) {
+              const hotNames = yearData.hot.map(d => DIRECTIONS[d]?.label || d).join(" · ");
+              return (
+                <div style={{ fontSize: 13, color: "#4ade80", fontFamily: "monospace", marginBottom: 8 }}>
+                  热门：{hotNames}
+                </div>
+              );
+            }
+            if (yearData?.special === "confused_year") {
+              return (
+                <div style={{ fontSize: 13, color: "#f87171", fontFamily: "monospace", marginBottom: 8 }}>
+                  这一年没有明确的风口。
+                </div>
+              );
+            }
+            return null;
+          })()}
+          <div style={{ fontSize: 13, color: "#888", fontFamily: "monospace", marginBottom: 16 }}>
             你知道这一年能做什么。
           </div>
           <button onClick={onNext} style={{ background: "#0c0c18", border: "1px solid #2a2a3a", color: "#888", borderRadius: 8, padding: "13px 14px", fontSize: 15, cursor: "pointer", width: "100%", transition: "all 0.15s" }}
@@ -1632,7 +1697,7 @@ function NgLegacyScreen({ legacyData, onNext }) {
     <div style={{ minHeight: "100vh", background: "#060610", color: "#e0e0e8", fontFamily: "'Segoe UI', system-ui, sans-serif", maxWidth: 420, margin: "0 auto", display: "flex", flexDirection: "column", justifyContent: "center", padding: "24px 20px" }}>
       <div style={{ borderTop: "1px solid #1a1a2e", marginBottom: 24 }}></div>
       <div style={{ fontSize: 14, color: "#888", fontFamily: "monospace", lineHeight: 2, marginBottom: 24 }}>
-        <p>你打开手机，有消息在等你。</p>
+        <p>你打开手机，有{members.length > 1 ? "两条" : ""}消息在等你。</p>
         {members.map((m, i) => (
           <div key={i} style={{ marginTop: 16, paddingLeft: 8, borderLeft: "2px solid #4ade80" }}>
             <p style={{ color: "#4ade80" }}>「{m.name}」（{ROLE_NAMES[m.role] || m.role}）：</p>
@@ -1640,7 +1705,7 @@ function NgLegacyScreen({ legacyData, onNext }) {
           </div>
         ))}
         <p style={{ marginTop: 24 }}>你有人了。</p>
-        <p>他们记得你怎么做事。</p>
+        <p>{members.length > 1 ? "他们" : "他"}记得你怎么做事。</p>
       </div>
       <button onClick={onNext} style={{ background: "#0c0c18", border: "1px solid #2a2a3a", color: "#888", borderRadius: 8, padding: "13px 14px", fontSize: 15, cursor: "pointer", width: "100%", transition: "all 0.15s" }}
         onMouseEnter={e => { e.currentTarget.style.borderColor = "#4a4a7a"; e.currentTarget.style.color = "#ccc"; }}
@@ -2221,18 +2286,21 @@ function getMarketTrendEvent(marketYear) {
     choices: [
       {
         text: "全力融入，方向转型",
-        effects: { progress: -9, morale: 5, budget: -10 },
+        effects: { progress: -6, morale: 3, budget: -5, bossTrust: 2, qualityDebt: 8 },
+        hidden: { judgment: -1 },
         result: "兴奋持续了三天。团队发现转型意味着三个月白干。",
       },
       {
         text: `表面融入，加个「${flavor.genre}探索模式」`,
-        effects: { progress: -4, morale: -3, budget: -5 },
+        effects: { progress: -2, morale: -2, budget: -3, bossTrust: 1, qualityDebt: 5 },
+        hidden: { honesty: -1 },
         result: "做出了一个四不像。玩家不买账，老板也不满意。",
       },
       {
         text: "礼貌拒绝，坚守核心方向",
-        effects: { progress: 1, morale: -8, budget: 0 },
-        result: "老板有点不开心。但项目没乱。六个月后那个热点凉了。",
+        effects: { progress: 2, morale: -5, budget: 0, bossTrust: -2 },
+        hidden: { judgment: 1, grit: 1 },
+        result: "老板有点不开心。但项目没乱。不久后那个热点凉了。",
       },
     ],
   };
@@ -2458,7 +2526,7 @@ function OnboardingScreen({ pickedCards, onDone }) {
     },
     {
       header: "我有多少时间？",
-      content: <>「试用期六个月，24周。」<br /><br />「你要在这24周里，<br />  把游戏的完成度推到100。」<br />「每4周，上面会来看一次进度。<br />  那是你证明自己的节点。」</>,
+      content: <>「试用期六个月，24周。」<br /><br />「你要在这24周里，把游戏的完成度推到100。」<br /><br />「每4周，上面会来看一次进度。那是你证明自己的节点。」</>,
       button: "继续 →"
     },
     {
@@ -2523,7 +2591,7 @@ export default function App() {
    const [state, setState] = useState(() => {
      const years = [2010, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026];
      const marketYear = years[Math.floor(Math.random() * years.length)];
-     return { week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust: Math.floor(Math.random() * 6) + 3, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, directionChosen: false, directionDelayPenalty: false, marketYear, companySize: "mid", kpiState: "normal", ipType: "none", ipActive: false, ipProtectUsed: 0, ipProtectCount: 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, fakeProgress: 0, honestyHintShown: false, honestyMidHintShown: false, peopleHintShown: false, qualityHintShown: false, usedActions: [], lastManageUpResult: null };
+     return { week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust: Math.floor(Math.random() * 6) + 3, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, projectHeadcount: 0, directionChosen: false, directionDelayPenalty: false, marketYear, companySize: "mid", kpiState: "normal", ipType: "none", ipActive: false, ipProtectUsed: 0, ipProtectCount: 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, fakeProgress: 0, honestyHintShown: false, honestyMidHintShown: false, peopleHintShown: false, qualityHintShown: false, usedActions: [], lastManageUpResult: null };
    });
 
   const [workMode, setWorkMode] = useState("normal");
@@ -2552,8 +2620,7 @@ export default function App() {
      setRecruitResultMessage("");
 
      if (action.id === "campus" || action.id === "social") {
-       const roles = ['engineer', 'designer', 'qa'];
-       const role = roles[Math.floor(Math.random() * roles.length)];
+       const role = weightedRandomRole();
        const tags = action.id === "campus" ? CAMPUS_TAGS : SOCIAL_TAGS;
        const shuffled = [...tags].sort(() => Math.random() - 0.5);
        const selectedTags = shuffled.slice(0, 2);
@@ -2704,7 +2771,7 @@ export default function App() {
      setSelectedNgYear(null);
      const years = [2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026];
      const marketYear = years[Math.floor(Math.random() * years.length)];
-      setState({ week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust: Math.floor(Math.random() * 6) + 3, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, directionChosen: false, directionDelayPenalty: false, marketYear, companySize: "mid", kpiState: "normal", ipType: "none", ipActive: false, ipProtectUsed: 0, ipProtectCount: 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, fakeProgress: 0, honestyHintShown: false, honestyMidHintShown: false, peopleHintShown: false, qualityHintShown: false, usedActions: [], lastManageUpResult: null });
+      setState({ week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust: Math.floor(Math.random() * 6) + 3, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, projectHeadcount: 0, directionChosen: false, directionDelayPenalty: false, marketYear, companySize: "mid", kpiState: "normal", ipType: "none", ipActive: false, ipProtectUsed: 0, ipProtectCount: 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, fakeProgress: 0, honestyHintShown: false, honestyMidHintShown: false, peopleHintShown: false, qualityHintShown: false, usedActions: [], lastManageUpResult: null });
      setWorkMode("normal");
      setOvertimeType("pay");
      setPieCount(0);
@@ -2734,6 +2801,9 @@ export default function App() {
         legacyMembers: assignLegacyTeam(state.people),
       };
       setLegacyData(legacy);
+      setCardStep(0);
+      setPickedCards([]);
+      setSelectedNgYear(null);
       setAppPhase("ng_plus");
     }, [state]);
 
@@ -2747,98 +2817,124 @@ export default function App() {
          gamePhase: endings[idx],
          loseReason: idx === 6 ? "【调试模式】快速预览结局" : s.loseReason,
          gameDirection: idx % 2 === 0 ? "open_world" : null,
+         projectHeadcount: idx % 2 === 0 ? DIRECTION_TEAM_SCALE.OPENWORLD.projectTeamSize : 0,
          survived: 18 + idx,
        }));
      }
    };
 
-  if (appPhase === "ng_plus") {
-    return (
-      <NgPlusScreen
-        legacyData={legacyData}
-        onNext={() => setAppPhase("ng_year")}
-      />
-    );
-  }
-  if (appPhase === "ng_year") {
-    return (
-      <NgYearScreen
-        legacyData={legacyData}
-        selectedYear={selectedNgYear}
-        onSelectYear={setSelectedNgYear}
-        onNext={() => {
-          if (legacyData && legacyData.legacyMembers && legacyData.legacyMembers.length > 0) {
-            setAppPhase("ng_legacy");
-          } else {
-            setAppPhase("cards");
-          }
-        }}
-      />
-    );
-  }
-   if (appPhase === "ng_legacy") {
+   const phase = [...PHASE_LABELS].reverse().find(p => state.progress >= p.min)?.label || "概念原型期";
+   const weeksLeft = TOTAL_WEEKS - state.week;
+   const { label: timeLabel } = weekDisplay(state.week);
+
+   if (appPhase === "ng_plus") {
      return (
-       <NgLegacyScreen
+       <NgPlusScreen
          legacyData={legacyData}
-         onNext={() => setAppPhase("cards")}
+         onNext={() => setAppPhase("ng_year")}
        />
      );
    }
-
-   if (appPhase === "intro") {
-     return <IntroScreen onNext={() => setAppPhase("cards")} />;
+   if (appPhase === "ng_year") {
+     return (
+       <NgYearScreen
+         legacyData={legacyData}
+         selectedYear={selectedNgYear}
+         onSelectYear={setSelectedNgYear}
+         onNext={() => {
+           if (legacyData && legacyData.legacyMembers && legacyData.legacyMembers.length > 0) {
+             setAppPhase("ng_legacy");
+           } else {
+             setAppPhase("cards");
+           }
+         }}
+       />
+     );
    }
+    if (appPhase === "ng_legacy") {
+      return (
+        <NgLegacyScreen
+          legacyData={legacyData}
+          onNext={() => setAppPhase("cards")}
+        />
+      );
+    }
 
-   const handleCardPick = (step, card) => {
-     const activeGroups = getActiveCardGroups(pickedCards);
-     const groupIdx = CARD_GROUPS.indexOf(activeGroups[step]);
-     const newPicks = [...pickedCards];
-     newPicks[groupIdx] = card;
-     setPickedCards(newPicks);
-   };
+    if (appPhase === "intro") {
+      return <IntroScreen onNext={() => setAppPhase("cards")} />;
+    }
 
-   const handleCardNext = () => {
-     const activeGroups = getActiveCardGroups(pickedCards);
-     if (cardStep < activeGroups.length - 1) {
-       setCardStep(s => s + 1);
-     } else {
-       if (legacyData) {
-         const initState = buildInitialState(pickedCards, legacyData, selectedNgYear);
-         setState(initState);
-         setAppPhase("game");
-         setEvent(pickEvent(initState));
-       } else {
-         setAppPhase("onboarding");
-       }
-     }
-   };
+    const handleCardPick = (step, card) => {
+      const activeGroups = getActiveCardGroups(pickedCards);
+      const groupIdx = CARD_GROUPS.indexOf(activeGroups[step]);
+      const newPicks = [...pickedCards];
+      newPicks[groupIdx] = card;
+      setPickedCards(newPicks);
+    };
 
-   if (appPhase === "cards") {
-     return <CardScreen step={cardStep} pickedCards={pickedCards} onPick={handleCardPick} onNext={handleCardNext} />;
-   }
+    const handleCardNext = () => {
+      const activeGroups = getActiveCardGroups(pickedCards);
+      if (cardStep < activeGroups.length - 1) {
+        setCardStep(s => s + 1);
+      } else {
+        if (legacyData) {
+          const initState = buildInitialState(pickedCards, legacyData, selectedNgYear);
+          setState(initState);
+          setWorkMode("normal");
+          setOvertimeType("pay");
+          setPieCount(0);
+          setApSpent(0);
+          setFreezeDone(false);
+          setWeekPhase("planning");
+          setShowMonthSummary(false);
+          setMonthSummaryData(null);
+          setMonthStartProgress(0);
+          setShowResult(false);
+          setEvent(null);
+          setLastResult("");
+          setLastConfidantReveal("");
+          setLastBossReaction("");
+          setLastEffects(null);
+          setLastWorkEffect(null);
+          setRecruitResultMessage("");
+          setRecruitCandidate(null);
+          setLayoffPanelOpen(false);
+          setLayoffConfirmMember(null);
+          setLayoffPendingMember(null);
+          setAnimKey(k => k + 1);
+          setAppPhase("game");
+        } else {
+          setAppPhase("onboarding");
+        }
+      }
+    };
 
-   const handleOnboardingDone = () => {
-     const initState = buildInitialState(pickedCards);
-     setPrologueState(initState);
-     setAppPhase("prologue");
-   };
+    if (appPhase === "cards") {
+      return <CardScreen step={cardStep} pickedCards={pickedCards} onPick={handleCardPick} onNext={handleCardNext} />;
+    }
 
-   if (appPhase === "onboarding") {
-     return <OnboardingScreen pickedCards={pickedCards} onDone={handleOnboardingDone} />;
-   }
+    const handleOnboardingDone = () => {
+      const initState = buildInitialState(pickedCards);
+      setPrologueState(initState);
+      setAppPhase("prologue");
+    };
 
-   const handlePrologueStart = () => {
-     if (!prologueState) return;
-     setState(prologueState);
-     setAppPhase("game");
-     setEvent(pickEvent(prologueState));
-   };
+    if (appPhase === "onboarding") {
+      return <OnboardingScreen pickedCards={pickedCards} onDone={handleOnboardingDone} />;
+    }
 
-   if (appPhase === "prologue") {
-     return <PrologueScreen initState={prologueState} onStart={handlePrologueStart} />;
-   }
+    const handlePrologueStart = () => {
+      if (!prologueState) return;
+      setState(prologueState);
+      setAppPhase("game");
+      setEvent(null);
+    };
 
-   if (state.gamePhase === "legendary") return (
+    if (appPhase === "prologue") {
+      return <PrologueScreen initState={prologueState} onStart={handlePrologueStart} />;
+    }
+
+    if (state.gamePhase === "legendary") return (
     <div style={s.app}>
       <div style={s.endWrap}>
         <div style={{ fontSize: 72 }}>👑</div>
@@ -2898,20 +2994,20 @@ export default function App() {
     </div>
   );
 
-  if (state.gamePhase === "bad_release") return (
-    <div style={s.app}>
-      <div style={s.endWrap}>
-        <div style={{ fontSize: 72 }}>💥</div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: "#f87171", margin: "12px 0 6px" }}>叫好不叫座</div>
-        <div style={{ color: "#c7c7c7", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
-        <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
-          所有人都说这个方向没有未来。<br /><br />你做了，上线了。<br />活跃数据证明你没有错，<br />但付费数据证明他们是对的。<br /><br />你关掉数据分析后台，去喝了一杯酒。
-        </div>
-        <ShareCard state={state} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}><button onClick={handleStartNgPlus} style={s.endBtn}>开启第二局 →</button><button onClick={restart} style={{ ...s.endBtn, opacity: 0.7, borderColor: '#3a3a5a' }}>再来一局</button></div>
-      </div>
-    </div>
-  );
+   if (state.gamePhase === "bad_release") return (
+     <div style={s.app}>
+       <div style={s.endWrap}>
+         <div style={{ fontSize: 72 }}>💥</div>
+         <div style={{ fontSize: 22, fontWeight: 700, color: "#f87171", margin: "12px 0 6px" }}>叫好不叫座</div>
+         <div style={{ color: "#c7c7c7", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
+         <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
+           所有人都说这个方向没有未来。<br /><br />你做了，上线了。<br />活跃数据证明你没有错，<br />但付费数据证明他们是对的。<br /><br />你关掉数据分析后台，去喝了一杯酒。
+         </div>
+         <ShareCard state={state} />
+         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}><button onClick={handleStartNgPlus} style={s.endBtn}>带着遗憾继续 →</button><button onClick={restart} style={{ ...s.endBtn, opacity: 0.7, borderColor: '#3a3a5a' }}>重新开始</button></div>
+       </div>
+     </div>
+   );
 
   if (state.gamePhase === "counter_win") return (
     <div style={s.app}>
@@ -2941,6 +3037,146 @@ export default function App() {
       </div>
     </div>
   );
+
+  const handleChoice = useCallback((choice, optionIndex) => {
+    if (state.gamePhase !== "playing") return;
+
+    const effects = choice.effects || {};
+    let resultText = choice.result || "";
+    const outcome = choice.outcome;
+
+    setState(prev => {
+      let newState = {
+        ...prev,
+        progress: Math.max(0, Math.min(100, prev.progress + (effects.progress || 0))),
+        morale: Math.max(0, Math.min(100, prev.morale + (effects.morale || 0))),
+        budget: Math.max(0, prev.budget + (effects.budget || 0)),
+        bossTrust: Math.min(10, prev.bossTrust + (effects.bossTrust || 0)),
+        qualityDebt: Math.max(0, prev.qualityDebt + (effects.qualityDebt || 0)),
+      };
+
+      if (choice.hidden) {
+        Object.keys(choice.hidden).forEach(key => {
+          if (newState[key] !== undefined) {
+            newState[key] = Math.max(0, newState[key] + choice.hidden[key]);
+          }
+        });
+      }
+
+      // Patch B: boss_talk trust recovery for outcomes A and B
+      if (event?.id === "boss_talk" && (outcome === "A" || outcome === "B")) {
+        const trustRecovery = Math.min(3, Math.floor(prev.progress / 25));
+        newState.bossTrust = Math.min(10, newState.bossTrust + trustRecovery);
+        if (trustRecovery > 0) {
+          resultText = resultText + "\n\n「你活下来了。老板重新打量了你一眼。进度说话，其他什么都没有。」";
+        }
+      }
+
+      // Patch 30: projectHeadcount dynamic changes
+      // Set headcount when direction is chosen
+      if (choice.direction && DIRECTION_TEAM_SCALE[choice.direction]) {
+        newState.gameDirection = choice.direction;
+        newState.projectHeadcount = DIRECTION_TEAM_SCALE[choice.direction].projectTeamSize;
+      }
+
+      // Headcount decrease - lucid_p2 choice A (outcome = "external")
+      if (event?.id === "lucid_p2" && outcome === "external") {
+        newState.projectHeadcount = Math.max(1, newState.projectHeadcount - 1);
+      }
+
+      // Headcount decrease - stock_trap option 1 (放他走)
+      if (event?.id === "stock_trap" && optionIndex === 1) {
+        newState.projectHeadcount = Math.max(1, newState.projectHeadcount - 1);
+      }
+
+      // Headcount increase - manpower/brooks_law events
+      if (event?.id === "manpower" || event?.id === "brooks_law") {
+        if (choice.action === "large") {
+          newState.projectHeadcount = newState.projectHeadcount + 3;
+        } else if (choice.action === "small") {
+          newState.projectHeadcount = newState.projectHeadcount + 2;
+        } else if (event?.id === "brooks_law" && optionIndex === 0) {
+          // brooks_law option 0 is "大量招人"
+          newState.projectHeadcount = newState.projectHeadcount + 3;
+        } else if (event?.id === "brooks_law" && optionIndex === 1) {
+          // brooks_law option 1 is "只招一个关键岗位"
+          newState.projectHeadcount = newState.projectHeadcount + 1;
+        }
+      }
+
+      // Patch 28: manpower/brooks_law → schedule hire_reveal + hireBurden
+      if (event?.id === "manpower" && (choice.action === "large" || choice.action === "small")) {
+        const isLarge = choice.action === "large";
+        const count = isLarge ? 3 : 2;
+        const newScheduled = [];
+        for (let i = 1; i <= count; i++) {
+          newScheduled.push({ id: "hire_reveal", triggerWeek: prev.week + i });
+        }
+        newState.scheduledEvents = [...(prev.scheduledEvents || []), ...newScheduled];
+        newState.hireScale = choice.action;
+        newState.hireBurdenWeeksLeft = isLarge ? 4 : 2;
+        newState.hireBurdenRate = isLarge ? 3 : 2;
+      }
+      if (event?.id === "brooks_law") {
+        const isLarge = optionIndex === 0;
+        const isSmall = optionIndex === 1;
+        if (isLarge || isSmall) {
+          const count = isLarge ? 3 : 2;
+          const newScheduled = [];
+          for (let i = 1; i <= count; i++) {
+            newScheduled.push({ id: "hire_reveal", triggerWeek: prev.week + i });
+          }
+          newState.scheduledEvents = [...(prev.scheduledEvents || []), ...newScheduled];
+          newState.hireScale = isLarge ? "large" : "small";
+          newState.hireBurdenWeeksLeft = isLarge ? 4 : 2;
+          newState.hireBurdenRate = isLarge ? 3 : 2;
+        }
+      }
+
+      // Patch 28: hire_reveal → add member to teamSlots
+      if (event?.id === "hire_reveal") {
+        if (prev.teamSlots.length >= 6) {
+          resultText = resultText + "\n\n团队已满员，新人直接分配到了项目组。";
+        } else {
+          const role = weightedRandomRole();
+          const seniority = randomSeniority();
+          const newMember = {
+            id: `hire_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            role,
+            seniority,
+            source: "hire_reveal",
+            contribution: computeContribution(role, seniority, prev.gameDirection),
+            weeksJoined: 0,
+          };
+          newState.teamSlots = [...prev.teamSlots, newMember];
+          const hireType = choice.outcome;
+          if (hireType === "god") {
+            newState.progressBonus = (newState.progressBonus || 0) + 1;
+          }
+          if (hireType === "code" || hireType === "morale") {
+            newState.problemEmployee = newMember.id;
+          }
+        }
+      }
+
+      return newState;
+    });
+
+    setLastResult(resultText);
+    setLastEffects(effects);
+    setShowResult(true);
+  }, [state, event]);
+
+  const dismissMonthSummary = useCallback(() => {
+    setShowMonthSummary(false);
+    setMonthSummaryData(null);
+  }, []);
+
+  const nextEvent = useCallback(() => {
+    setEvent(null);
+    setShowResult(false);
+    setAnimKey(k => k + 1);
+  }, []);
 
   const apTotal = WORK_MODES[workMode].ap + (state.apBonusPerWeek || 0);
   const apLeft = Math.max(0, apTotal - apSpent);
@@ -3020,7 +3256,18 @@ export default function App() {
           </div>
           <div style={{ width: 10 }} />
           <StatBar label="⭐ 信任" value={state.bossTrust * 10} displayValue={state.bossTrust} color="#facc15" onClick={() => setActiveTip(activeTip === "trust" ? null : "trust")} />
-         </div>
+          </div>
+        {state.progress >= 100 && state.gamePhase === "playing" && (
+          <div style={{
+            fontSize: 11,
+            fontFamily: "monospace",
+            color: "#4ade80",
+            marginTop: 3,
+            opacity: 0.85
+          }}>
+            📦 进度已满，等待上线
+          </div>
+        )}
         {state.kpiState !== "normal" && (
           <div style={{ padding: "6px 18px", fontSize: 12, fontFamily: "monospace", color: state.kpiState === "tight" ? "#f87171" : "#4ade80", background: state.kpiState === "tight" ? "#1a0505" : "#051a05" }}>
             {state.kpiState === "tight" && "⚠ 老板盯得紧：预算消耗+30%，士气伤害+15%"}
@@ -3086,10 +3333,8 @@ export default function App() {
             <span>🤝</span>
             <span>核心团队 {state.teamSlots.length}/6</span>
             {state.gameDirection && DIRECTION_TEAM_SCALE[state.gameDirection] ? (
-              <span style={{ color: "#666" }}>· 项目 {DIRECTION_TEAM_SCALE[state.gameDirection].projectTeamSize}人</span>
-            ) : (
-              <span style={{ color: "#666" }}>· 项目 --人</span>
-            )}
+              <span style={{ color: "#666" }}>· 项目 {state.projectHeadcount}人</span>
+            ) : null}
             <span style={{ flex: 1 }} />
             <span>{teamPanelExpanded ? "▲" : "▼"}</span>
           </div>
@@ -3277,7 +3522,7 @@ export default function App() {
                         ...prev,
                         narrationsUsed: [...(prev.narrationsUsed || []), event.narrateKey],
                       }));
-                      setEvent(pickEvent({ ...state, narrationsUsed: [...(state.narrationsUsed || []), event.narrateKey] }));
+                      setEvent(null);
                       setAnimKey(k => k + 1);
                     }} style={{ ...s.choiceBtn, borderColor: "#2a2a3e", justifyContent: "center", color: "#c7c7c7", animation: "fadeUp 0.4s ease 1.1s forwards", opacity: 0 }}>
                       继续 →
@@ -3480,12 +3725,28 @@ export default function App() {
                          : <EffectBadge value={-lastWorkEffect.moralePenalty} label={`士气(第${pieCount}次饼)`} />
                        }
                      </div>
-                   )}
-                   <button onClick={nextEvent} style={{ ...s.choiceBtn, borderColor: "#2a2a3a", textAlign: "center", justifyContent: "center", color: "#888", animation: "fadeUp 0.4s ease 1.0s forwards", opacity: 0 }}
-                     onMouseEnter={e => { e.currentTarget.style.borderColor = "#c7c7c7"; e.currentTarget.style.color = "#ccc"; }}
-                     onMouseLeave={e => { e.currentTarget.style.borderColor = "#2a2a3a"; e.currentTarget.style.color = "#888"; }}>
-                     下一位来访者 →
-                   </button>
+                    )}
+                    {state.progress >= 100 && (
+                      <div style={{
+                        marginTop: 12,
+                        padding: "10px 14px",
+                        background: "#0a1a0a",
+                        border: "1px solid #166534",
+                        borderRadius: 8,
+                        fontSize: 13,
+                        color: "#4ade80",
+                        fontFamily: "monospace",
+                        lineHeight: 1.7,
+                        animation: "fadeUp 0.5s ease both"
+                      }}>
+                        📦 {getCompletionMessage(state)}
+                      </div>
+                    )}
+                    <button onClick={nextEvent} style={{ ...s.choiceBtn, borderColor: "#2a2a3a", textAlign: "center", justifyContent: "center", color: "#888", animation: "fadeUp 0.4s ease 1.0s forwards", opacity: 0 }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = "#c7c7c7"; e.currentTarget.style.color = "#ccc"; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = "#2a2a3a"; e.currentTarget.style.color = "#888"; }}>
+                      下一位来访者 →
+                    </button>
                  </div>
               )}
             </>
