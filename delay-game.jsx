@@ -1,5 +1,116 @@
 import { useState, useEffect, useCallback } from "react";
 
+const DIRECTION_NAMES = {
+  open_world: "开放世界",
+  roguelike: "Roguelike",
+  turn_based: "回合制",
+  card_ccg: "卡牌 CCG",
+  survival: "生存建造",
+  extraction: "塔科夫类",
+  social: "模拟人生",
+  arpg: "动作 RPG",
+  farming: "农场经营",
+};
+
+function ShareCard({ state }) {
+  const getVerdict = (s) => {
+    const { honesty, people, quality, judgment, grit, gamePhase } = s;
+    if (honesty >= 7 && quality >= 7) return "你是个实干家，但有时，行业对实干家并不友好。";
+    if (honesty >= 7 && quality < 5) return "你很诚实。关于品质这件事，你也从没骗过自己。";
+    if (honesty < 4 && ["legendary", "excellent"].includes(gamePhase)) return "你赢了。用了你自己才知道的方式。";
+    if (honesty < 4 && ["lose", "bad_release"].includes(gamePhase)) return "数字是编出来的，但结局是真实的。";
+    if (judgment >= 8 && people < 4) return "你看得准，但你不在乎那些人。他们也不会记得你。";
+    if (people >= 8 && judgment < 4) return "你在乎所有人，但你看不准。代价高一些而已。";
+    if (grit >= 8 && gamePhase === "lose") return "你撑到了最后。只是最后还不够。";
+    if (grit < 4 && ["legendary", "excellent"].includes(gamePhase)) return "你赢了，而且你自己都有点意外。";
+    if (honesty >= 7 && people >= 7 && quality >= 7 && judgment >= 7 && grit >= 7) return "你做到了几乎所有事情。你知道这有多难。";
+    if (honesty <= 4 && people <= 4 && quality <= 4 && judgment <= 4 && grit <= 4) return "有时候这个行业就是这样。不全是你的问题。";
+    return "你留下了一座无字碑。好与坏，都是你的。";
+  };
+
+  const getBar = (value) => "█".repeat(value) + "░".repeat(10 - value);
+
+  const endingColors = {
+    legendary: "#facc15",
+    excellent: "#a78bfa",
+    profitable: "#4ade80",
+    average: "#94a3b8",
+    bad_release: "#f87171",
+    counter_win: "#f97316",
+    lose: "#f87171",
+  };
+
+  const endingEmojis = {
+    legendary: "👑",
+    excellent: "🏆",
+    profitable: "🎮",
+    average: "📦",
+    bad_release: "💥",
+    counter_win: "🔥",
+    lose: "📦",
+  };
+
+  const endingLabels = {
+    legendary: "传奇制作人",
+    excellent: "优秀制作人",
+    profitable: "大赚特赚",
+    average: "中规中矩",
+    bad_release: "叫好不叫座",
+    counter_win: "逆势突围",
+    lose: "项目延期了",
+  };
+
+  const directionName = state.gameDirection ? DIRECTION_NAMES[state.gameDirection] : null;
+
+  return (
+    <div style={{
+      background: "#0c0c18",
+      border: "1px solid #2a2a3a",
+      borderRadius: 12,
+      padding: 20,
+      maxWidth: 340,
+      margin: "0 auto 24px",
+      fontFamily: "monospace",
+      textAlign: "left",
+    }}>
+      <div style={{ fontSize: 12, color: "#888", marginBottom: 4 }}>完蛋！我被延期包围了</div>
+      <div style={{ fontSize: 22, fontWeight: 700, color: endingColors[state.gamePhase], textAlign: "center", margin: "12px 0 4px" }}>
+        {endingEmojis[state.gamePhase]} {endingLabels[state.gamePhase]}
+      </div>
+      {directionName && (
+        <div style={{ fontSize: 13, color: "#888", textAlign: "center", marginBottom: 2 }}>
+          {directionName} · {state.marketYear}年
+        </div>
+      )}
+      <div style={{ fontSize: 13, color: "#888", textAlign: "center", marginBottom: 16 }}>
+        存活 {state.survived} 周
+      </div>
+      <div style={{ borderTop: "1px solid #222", margin: "12px 0" }}></div>
+      <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>隐性评价</div>
+      {[
+        ["诚实", state.honesty],
+        ["人情", state.people],
+        ["品质", state.quality],
+        ["判断", state.judgment],
+        ["抗压", state.grit],
+      ].map(([label, value]) => (
+        <div key={label} style={{ display: "flex", alignItems: "center", marginBottom: 4, fontSize: 13, color: "#ccc" }}>
+          <span style={{ width: 36 }}>{label}</span>
+          <span style={{ color: "#64748b" }}>{getBar(value)}</span>
+          <span style={{ width: 20, textAlign: "right", marginLeft: 8 }}>{value}</span>
+        </div>
+      ))}
+      <div style={{ borderTop: "1px solid #222", margin: "16px 0" }}></div>
+      <div style={{ fontSize: 14, color: "#aaa", fontStyle: "italic", lineHeight: 1.7, marginBottom: 16 }}>
+        「{getVerdict(state)}」
+      </div>
+      <div style={{ fontSize: 11, color: "#555", textAlign: "center" }}>
+        你一定有像你这样棒的朋友吧？截图邀请他们一起来做制作人呀
+      </div>
+    </div>
+  );
+}
+
 const TOTAL_WEEKS = 24;
 const BASE_PROGRESS = 1;
 
@@ -3520,6 +3631,22 @@ export default function App() {
   const weeksLeft = TOTAL_WEEKS - state.week;
   const { label: timeLabel } = weekDisplay(state.week);
 
+  const DEBUG = window.location.hostname === "localhost";
+  const handleEndingPreview = (num) => {
+    if (!DEBUG) return;
+    const endings = ["legendary", "excellent", "profitable", "average", "bad_release", "counter_win", "lose"];
+    const idx = num - 1;
+    if (idx >= 0 && idx < endings.length && state.gamePhase === "playing") {
+      setState(s => ({
+        ...s,
+        gamePhase: endings[idx],
+        loseReason: idx === 6 ? "【调试模式】快速预览结局" : s.loseReason,
+        gameDirection: idx % 2 === 0 ? "open_world" : null,
+        survived: 18 + idx,
+      }));
+    }
+  };
+
   if (state.gamePhase === "legendary") return (
     <div style={s.app}>
       <div style={s.endWrap}>
@@ -3527,8 +3654,9 @@ export default function App() {
         <div style={{ fontSize: 22, fontWeight: 700, color: "#facc15", margin: "12px 0 6px" }}>传奇制作人</div>
         <div style={{ color: "#c7c7c7", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
         <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
-          你扛住了 <span style={{ color: "#c084fc" }}>{state.survived} 个延期人格</span> 的轮番骚扰，成功把游戏送上线。<br /><br />你做到了，而且你知道为什么。
+          你扛住了 <span style={{ color: "#c084fc" }}>{state.survived} 个延期人格</span> 的轮番骚扰，成功把游戏送上线。<br /><br />你做到了。<br /><br />而且你知道，基于你的实力，<br />这是一种必然。<br />企业通讯软件的提示音响起，<br />老板约你开会聊下一个项目。
         </div>
+        <ShareCard state={state} />
         <button onClick={restart} style={s.endBtn}>再来一局</button>
       </div>
     </div>
@@ -3541,8 +3669,9 @@ export default function App() {
         <div style={{ fontSize: 22, fontWeight: 700, color: "#a78bfa", margin: "12px 0 6px" }}>优秀制作人</div>
         <div style={{ color: "#c7c7c7", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
         <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
-          你扛住了 <span style={{ color: "#c084fc" }}>{state.survived} 个延期人格</span> 的轮番骚扰，成功把游戏送上线。<br /><br />你做到了。有些人知道代价。
+          你扛住了 <span style={{ color: "#c084fc" }}>{state.survived} 个延期人格</span> 的轮番骚扰，成功把游戏送上线。<br /><br />你做到了。<br /><br />老板很满意，<br />说他当初果然没有看走眼。<br />一旁的Tom仍旧沉默不语，<br />你注意到他拿出手机，看了一眼时间。
         </div>
+        <ShareCard state={state} />
         <button onClick={restart} style={s.endBtn}>再来一局</button>
       </div>
     </div>
@@ -3555,8 +3684,9 @@ export default function App() {
         <div style={{ fontSize: 22, fontWeight: 700, color: "#4ade80", margin: "12px 0 6px" }}>大赚特赚</div>
         <div style={{ color: "#c7c7c7", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
         <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
-          你扛住了 <span style={{ color: "#c084fc" }}>{state.survived} 个延期人格</span> 的轮番骚扰，成功把游戏送上线。<br /><br />你做到了。但你不确定值不值得。
+          你扛住了 <span style={{ color: "#c084fc" }}>{state.survived} 个延期人格</span> 的轮番骚扰，成功把游戏送上线。<br /><br />你做到了。<br />所有人都在为你庆功，<br />一时间关于你的通稿铺天盖地。<br />你随后成了这家公司的副总裁，<br />也成了这个行业最炙手可热的明星，<br />你的联系方式现在非常值钱。<br /><br />但你注意到，<br />角落里有一道锐利的目光，注视着你。
         </div>
+        <ShareCard state={state} />
         <button onClick={restart} style={s.endBtn}>再来一局</button>
       </div>
     </div>
@@ -3569,8 +3699,9 @@ export default function App() {
         <div style={{ fontSize: 22, fontWeight: 700, color: "#94a3b8", margin: "12px 0 6px" }}>中规中矩</div>
         <div style={{ color: "#c7c7c7", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
         <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
-          你扛住了 <span style={{ color: "#c084fc" }}>{state.survived} 个延期人格</span> 的轮番骚扰，成功把游戏送上线。<br /><br />你做到了。但有些东西，活不了。
+          你扛住了 <span style={{ color: "#c084fc" }}>{state.survived} 个延期人格</span> 的轮番骚扰，成功把游戏送上线。<br /><br />你做到了。<br />但也只是保住了这份工。
         </div>
+        <ShareCard state={state} />
         <button onClick={restart} style={s.endBtn}>再来一局</button>
       </div>
     </div>
@@ -3583,8 +3714,9 @@ export default function App() {
         <div style={{ fontSize: 22, fontWeight: 700, color: "#f87171", margin: "12px 0 6px" }}>叫好不叫座</div>
         <div style={{ color: "#c7c7c7", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
         <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
-          所有人都说这个方向没有未来。<br /><br />你做了，上线了。<br />数据证明他们是对的。<br /><br />你关掉数据分析后台，去喝了一杯酒。
+          所有人都说这个方向没有未来。<br /><br />你做了，上线了。<br />活跃数据证明你没有错，<br />但付费数据证明他们是对的。<br /><br />你关掉数据分析后台，去喝了一杯酒。
         </div>
+        <ShareCard state={state} />
         <button onClick={restart} style={s.endBtn}>再来一局</button>
       </div>
     </div>
@@ -3597,8 +3729,9 @@ export default function App() {
         <div style={{ fontSize: 22, fontWeight: 700, color: "#f97316", margin: "12px 0 6px" }}>逆势突围</div>
         <div style={{ color: "#c7c7c7", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
         <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
-          所有人都说这个方向没有未来。<br /><br />你没有辩解，只是做完了。<br /><br />上线那天，你翻出了当时那个沙龙的聊天记录，没有回复任何人。<br /><br />数据会说话。
+          所有人都说这个方向没有未来。<br /><br />你没有辩解，只是做完了。<br />上线那天，<br />你翻出了当时那个沙龙的聊天记录，没有回复任何人。<br />数据会说话。
         </div>
+        <ShareCard state={state} />
         <button onClick={restart} style={s.endBtn}>再来一局</button>
       </div>
     </div>
@@ -3612,6 +3745,7 @@ export default function App() {
         <div style={{ color: "#c7c7c7", fontSize: 14, marginBottom: 6 }}>{timeLabel}</div>
         <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 6 }}>{state.loseReason}</div>
         <div style={{ color: "#c7c7c7", fontSize: 14, marginBottom: 24 }}>撑过了 {state.survived} 个延期人格，进度达到 {state.progress}%</div>
+        <ShareCard state={state} />
         <button onClick={restart} style={s.endBtn}>重新开始</button>
       </div>
     </div>
@@ -3620,10 +3754,22 @@ export default function App() {
   const apTotal = WORK_MODES[workMode].ap + (state.apBonusPerWeek || 0);
   const apLeft = Math.max(0, apTotal - apSpent);
 
-  const header = (
-    <div style={s.header}>
-      <div>
-        <div style={{ fontSize: 14, fontWeight: 700, color: "#ddd", letterSpacing: "0.03em" }}>完蛋！我被延期包围了</div>
+   const header = (
+     <div style={s.header}>
+       {DEBUG && state.gamePhase === "playing" && (
+         <div style={{ background: "#1a0520", padding: "6px 12px", borderBottom: "1px solid #2a1a30", fontSize: 11, fontFamily: "monospace", display: "flex", gap: 6, flexWrap: "wrap" }}>
+           <span style={{ color: "#c084fc" }}>调试：</span>
+           {[1,2,3,4,5,6,7].map(n => (
+             <button key={n} onClick={() => handleEndingPreview(n)} style={{
+               background: "#2a1a30", border: "1px solid #3a2a40", color: "#c084fc",
+               borderRadius: 4, padding: "2px 8px", fontSize: 11, cursor: "pointer"
+             }}>{n}</button>
+           ))}
+           <span style={{ color: "#666", marginLeft: 4 }}>点击预览 7 种结局</span>
+         </div>
+       )}
+       <div>
+         <div style={{ fontSize: 14, fontWeight: 700, color: "#ddd", letterSpacing: "0.03em" }}>完蛋！我被延期包围了</div>
         <div style={{ fontSize: 12, color: "#c7c7c7", marginTop: 1 }}>{phase}</div>
       </div>
       <div style={{ textAlign: "right" }}>
