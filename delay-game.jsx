@@ -1511,7 +1511,7 @@ const YEAR_DATA = {
   2012: {
     hot: ["IP_PORT", "CHESS_CARD"],
     mocked: "PC_MMO",
-    catchphrase: "页转手是捷径，月入千万不是梦",
+    catchphrase: "移动市场还是一片蓝海。页转手是捷径，月入千万不是梦",
     representatives: ["忘仙手游", "世界OL"],
     mockedFlavor: "「你还在做老掉牙的端游？手机用户哪有耐心肝这个。」",
     specialEvents: ["chess_card_jqk"],
@@ -1522,16 +1522,16 @@ const YEAR_DATA = {
     hot: ["CARD", "CASUAL"],
     mocked: "SLG",
     catchphrase: "2013是卡牌年，无卡牌不手游",
-    representatives: ["我叫MT", "大掌门"],
+    representatives: ["你叫MT", "X掌门"],
     mockedFlavor: "「SLG？太复杂了，手机用户不爱动脑子。」",
-    narrateA: "隔壁组策划下班时说了句话:\"我们月活破百万了，就靠加了个SSR保底。\"你点点头，好像听懂了。",
+    narrateA: "隔壁组策划下班时说了句话:\"我们日活破百万了，就靠加了个SSR保底。\"你点点头，好像听懂了。",
     narrateB: "产品会上有人提了个词:\"抽卡钩子。\"没有人问这是什么。大家都在点头。",
   },
   2014: {
     hot: ["ANIME", "SLG", "ARPG"],
     mocked: "MOBA",
     catchphrase: "年轻人做二次元，中年人做COK出海赚美金",
-    representatives: ["LoveLive学园偶像祭", "列王的纷争"],
+    representatives: ["LiveLove学园偶像祭", "列皇的纷争"],
     mockedFlavor: "「手机玩MOBA是反人类，操作根本做不了。」",
     narrateA: "这一年，二次元和SLG开始分庭抗礼。",
     narrateB: "MOBA还在观望，没人敢碰移动端这块蛋糕。",
@@ -1540,7 +1540,7 @@ const YEAR_DATA = {
     hot: ["MOBA", "ARPG"],
     mocked: "CARD",
     catchphrase: "MOBA是下一个风口，2015是重度化元年",
-    representatives: ["王者荣耀（公测）", "梦幻西游手游"],
+    representatives: ["亡者农药", "梦幻东游手游"],
     mockedFlavor: "「卡牌已经烂大街了，没前途。」",
     narrateA: "2015年，MOBA成为手游新宠。",
     narrateB: "ARPG端转手验证了重度化之路的可行性。",
@@ -1549,27 +1549,27 @@ const YEAR_DATA = {
     hot: ["ANIME", "SLG", "MOBA"],
     mocked: "CARD",
     catchphrase: "美术即正义，非酋欧皇出圈",
-    representatives: ["阴阳师", "率土之滨"],
-    mockedFlavor: "「你的卡牌和阴阳师比……算了，不比了。没美术没剧情，必死。」",
-    narrateA: "阴阳师刷屏，二次元手游证明了自己的商业价值。",
-    narrateB: "率土之滨让SLG从圈层走向大众。",
+    representatives: ["痒痒鼠", "莫非王臣"],
+    mockedFlavor: "「你的卡牌和痒痒鼠比……算了，不比了。没美术没剧情，必死。」",
+    narrateA: "痒痒鼠刷屏，二次元手游证明了自己的商业价值。",
+    narrateB: "莫非王臣让SLG从圈层走向大众。",
   },
   2017: {
     hot: ["ROMANCE", "SLG", "BATTLE_ROYALE"],
     mocked: "CARD",
     mustInclude: "BATTLE_ROYALE",
     catchphrase: "女性向是蓝海，SLG买量永动机",
-    representatives: ["恋与制作人", "乱世王者"],
+    representatives: ["恋与出品人", "乱世亡者"],
     mockedFlavor: "「二次元卡牌退烧了，你现在还做这个？」",
     hotWeights: [1.0, 1.0, 0.5],
     narrateA: "公司楼道里有人在玩一个游戏，跳伞，捡枪。他在电话里说:\"大吉大利，今晚吃鸡。\"",
-    narrateB: "恋与制作人证明了女性向市场的巨大潜力。",
+    narrateB: "恋与出品人证明了女性向市场的巨大潜力。",
   },
   2018: {
     hot: ["BATTLE_ROYALE", "ANIME", "IDLE"],
     mocked: "ARPG",
     catchphrase: "大吉大利今晚吃鸡，买量为王ROI至上",
-    representatives: ["荒野行动", "刺激战场"],
+    representatives: ["荒原行动", "激烈战场"],
     mockedFlavor: "「MMO已死，传统ARPG没人肝了。」",
     narrateA: "吃鸡手游席卷市场，战术竞技成为新赛道。",
     narrateB: "放置类游戏悄悄崛起，低成本高回报。",
@@ -1578,7 +1578,7 @@ const YEAR_DATA = {
     hot: ["AUTO_CHESS", "IDLE", "CARD"],
     mocked: "OPENWORLD",
     catchphrase: "万物皆可自走棋，窗口期只有三个月",
-    representatives: ["多多自走棋", "FGO（二次元基本盘）"],
+    representatives: ["少少自走棋", "FXO"],
     mockedFlavor: "「开放世界？成本高，手机带不动，赚不回来。」",
     specialEvents: ["auto_chess_window"],
     narrateA: "自走棋玩法爆红，三个月内二十多款产品上线。",
@@ -1587,8 +1587,8 @@ const YEAR_DATA = {
   2020: {
     hot: ["OPENWORLD", "IDLE", "SIM"],
     mocked: "CASUAL",
-    catchphrase: "原神定义3A手游，开放世界是入场券",
-    representatives: ["原神（公测）", "江南百景图"],
+    catchphrase: "原鬼定义3A手游，开放世界是入场券",
+    representatives: ["原鬼", "江南千景图"],
     mockedFlavor: "「纯换皮买量？用户审美疲劳了，买量见顶了。」",
     specialEvents: ["capital_wave"],
     narrateA: "原神公测，重新定义了手游的品质天花板。",
@@ -1598,16 +1598,16 @@ const YEAR_DATA = {
     hot: ["ARPG", "OPENWORLD", "METAVERSE"],
     mocked: "CARD",
     catchphrase: "武侠吃鸡破圈，端手游联动是未来",
-    representatives: ["永劫无间（PC端游）", "妄想山海"],
+    representatives: ["永X无间", "幻想山海"],
     mockedFlavor: "「没内容留不住人，老套卡牌没未来。」",
     narrateA: "元宇宙概念爆红，游戏圈人人都在谈。",
-    narrateB: "永劫无间证明了买断制端游在国内仍有市场。",
+    narrateB: "永X无间证明了买断制端游在国内仍有市场。",
   },
   2022: {
     hot: ["SLG", "OPENWORLD", "GLOBAL"],
     mocked: "CARD",
     catchphrase: "动物SLG是蓝海，出海是唯一增量",
-    representatives: ["小小蚁国", "原神（持续）"],
+    representatives: ["大大蚁国", "原鬼（持续）"],
     mockedFlavor: "「现在三端互通都是大势所趋了，你还只做国内单端？」",
     narrateA: "出海成为热词，国产游戏开始走向全球。",
     narrateB: "SLG新品类不断涌现，动物题材成为新宠。",
@@ -1616,16 +1616,16 @@ const YEAR_DATA = {
     hot: ["PARTY", "AI_NATIVE", "OPENWORLD"],
     mocked: "SLG",
     catchphrase: "AI重构生产，UGC是第二曲线",
-    representatives: ["逆水寒手游", "蛋仔派对"],
+    representatives: ["顺火暖手游", "蛋宰派对"],
     mockedFlavor: "「UGC什么一看就是骗局，踏踏实实做个SLG……」对方笑了。",
     narrateA: "技术群里有人发了一张AI生成的原画，跟美术组画的差不多。",
-    narrateB: "蛋仔派对让派对游戏和UGC成为新热点。",
+    narrateB: "蛋宰派对让派对游戏和UGC成为新热点。",
   },
   2024: {
     hot: ["ANIME", "SLG", "MINI_GAME"],
     mocked: "CASUAL",
     catchphrase: "二游卷内容，SLG卷买量，小游戏卷ROI",
-    representatives: ["绝区零", "三国：谋定天下", "永劫无间手游（陪跑）"],
+    representatives: ["绝区壹", "三国：nslg", "永劫X间手游（陪跑）"],
     mockedFlavor: "「三端互通光是UI就搞不定，老实点做休闲手游，成本低。」对方不是嘲讽，是真心建议。",
     narrateA: "小游戏生态成熟，微信成为新的流量洼地。",
     narrateB: "二游进入内容卷时代，没有好剧情好美术根本活不下去。",
@@ -1634,7 +1634,7 @@ const YEAR_DATA = {
     hot: ["AI_NATIVE", "LEGACY"],
     mocked: "OPENWORLD",
     catchphrase: "AI即内容，内容即留存",
-    representatives: ["崩坏：星穹铁道（长线）", "AI叙事类新游"],
+    representatives: ["崩坏：星穹轨道", "AI叙事类新游"],
     mockedFlavor: "「你还搁那开放世界呢？开放世界你做得完么？」",
     narrateA: "AI原生游戏开始出现，AI成为标配工具。",
     narrateB: "怀旧向游戏证明了老用户的付费能力。",
@@ -2235,10 +2235,9 @@ function OnboardingScreen({ pickedCards, onDone }) {
 
 export default function App() {
   const [appPhase, setAppPhase] = useState("intro"); // "intro" | "cards" | "onboarding" | "prologue" | "game"
-  const [cardStep, setCardStep] = useState(0);
-  const [pickedCards, setPickedCards] = useState([]);
-  const [prologueState, setPrologueState] = useState(null);
-  const [fade, setFade] = useState("in"); // "in" | "out"
+   const [cardStep, setCardStep] = useState(0);
+   const [pickedCards, setPickedCards] = useState([]);
+   const [prologueState, setPrologueState] = useState(null);
 
    const [state, setState] = useState(() => {
      const years = [2010, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026];
@@ -2682,34 +2681,21 @@ export default function App() {
     if (cardStep < activeGroups.length - 1) {
       setCardStep(s => s + 1);
     } else {
-      transitionTo("onboarding");
+      setAppPhase("onboarding");
     }
   };
-
-  const transitionTo = useCallback((nextPhase, onMid) => {
-    setFade("out");
-    setTimeout(() => {
-      if (onMid) onMid();
-      setAppPhase(nextPhase);
-      setFade("in");
-    }, 350);
-  }, []);
 
   const handleOnboardingDone = useCallback(() => {
     const initState = buildInitialState(pickedCards);
     setPrologueState(initState);
-    transitionTo("prologue");
-  }, [pickedCards, transitionTo]);
+    setAppPhase("prologue");
+  }, [pickedCards]);
 
   const handlePrologueStart = useCallback(() => {
     if (!prologueState) return;
-    setFade("out");
-    setTimeout(() => {
-      setState(prologueState);
-      setAppPhase("game");
-      setEvent(pickEvent(prologueState));
-      setFade("in");
-    }, 800);
+    setState(prologueState);
+    setAppPhase("game");
+    setEvent(pickEvent(prologueState));
   }, [prologueState]);
 
    const handleChoice = useCallback((choice, optionType) => {
@@ -3517,30 +3503,17 @@ export default function App() {
    }, []);
 
   // ---- screens ----
-  const fadeStyle = {
-    opacity: fade === "in" ? 1 : 0,
-    transition: "opacity 0.35s ease",
-  };
-
   if (appPhase === "intro") return (
-    <div style={fadeStyle}>
-      <IntroScreen onNext={() => transitionTo("cards")} />
-    </div>
+    <IntroScreen onNext={() => setAppPhase("cards")} />
   );
   if (appPhase === "cards") return (
-    <div style={fadeStyle}>
-      <CardScreen step={cardStep} pickedCards={pickedCards} onPick={handleCardPick} onNext={handleCardNext} />
-    </div>
+    <CardScreen step={cardStep} pickedCards={pickedCards} onPick={handleCardPick} onNext={handleCardNext} />
   );
   if (appPhase === "onboarding") return (
-    <div style={fadeStyle}>
-      <OnboardingScreen pickedCards={pickedCards} onDone={handleOnboardingDone} />
-    </div>
+    <OnboardingScreen pickedCards={pickedCards} onDone={handleOnboardingDone} />
   );
   if (appPhase === "prologue") return (
-    <div style={fadeStyle}>
-      <PrologueScreen initState={prologueState} onStart={handlePrologueStart} />
-    </div>
+    <PrologueScreen initState={prologueState} onStart={handlePrologueStart} />
   );
 
   const phase = [...PHASE_LABELS].reverse().find(p => state.progress >= p.min)?.label || "概念原型期";
