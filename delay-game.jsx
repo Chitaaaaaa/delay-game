@@ -568,13 +568,6 @@ function getCompletionMessage(state) {
   return "进度已满。下周，游戏就可以上线了——如果没有意外的话。";
 }
 
-function weightedRandomRole() {
-  const r = Math.random();
-  if (r < 0.40) return 'engineer';
-  if (r < 0.75) return 'designer';
-  return 'qa';
-}
-
 // ---- milestone helpers -----------------------------------------------------
 
 const BOSS_OK = "「老板那边收到了你的月度汇报。他回复了一个大拇指。」";
