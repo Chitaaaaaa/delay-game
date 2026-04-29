@@ -224,6 +224,33 @@ function getQualityDebtProgressDrain(qualityDebt) {
   return 0;
 }
 
+// ---- Patch 33: 厂商规模系统 + 体量档位 ------------------------------------------------
+const STUDIO_SCALE_MULTIPLIER = { small: 1.0, mid: 1.5, large: 2.5 };
+const STUDIO_BUDGET_MULTIPLIER = { small: 1.0, mid: 1.3, large: 1.8 };
+const MAX_HEADCOUNT = { small: 4, mid: 6, big: 8 };
+const RECRUIT_COST_MULTIPLIER = { small: 1.2, mid: 1.0, big: 0.9 };
+const OVERTIME_COST_MULTIPLIER = { small: 1.3, mid: 1.0, big: 0.8 };
+
+function getProjectTeamSize(direction, companySize) {
+  const base = DIRECTION_TEAM_SCALE[direction]?.projectTeamSize || 10;
+  const mult = STUDIO_SCALE_MULTIPLIER[companySize] || 1.0;
+  return Math.round(base * mult);
+}
+
+function getScaleTier(headcount) {
+  if (headcount < 12) return "small";
+  if (headcount <= 25) return "mid";
+  if (headcount <= 50) return "large";
+  return "xlarge";
+}
+
+const SCALE_TIER_LABELS = {
+  small: "小体量",
+  mid: "中体量",
+  large: "大体量",
+  xlarge: "特大体量",
+};
+
 function getQualityDebtDrainMsg(qualityDebt) {
   if (qualityDebt >= 80) return '「积累的问题在这个月集中爆发了。进度 -10。」';
   if (qualityDebt >= 60) return '「技术债开始反噬。团队花了大量时间救火。进度 -6。」';
@@ -280,24 +307,24 @@ const CARD_GROUPS = [
     cards: [
       { id: "new",      emoji: "🌱", label: "全新立项", reveal: "从零开始，一张白纸",                          init: s => s },
       { id: "handover", emoji: "🔄", label: "中途接盘", reveal: "进度+25，但前任留下了一些……或许可以称之为礼物？",            init: s => ({ ...s, progress: Math.min(40, s.progress + 25) }) },
-      { id: "zombie",   emoji: "💀", label: "秽土转生", reveal: "表面进度+35……等等，这进度是真实的吗？",       init: s => ({ ...s, progress: Math.min(50, s.progress + 35), pendingEvents: ["zombie_reveal"] }) },
+      { id: "zombie",   emoji: "💀", label: "秽土转生", reveal: "表面进度+35……等等，这进度是真实的吗？",       init: s => ({ ...s, progress: Math.min(50, s.progress + 35), pendingEvents: ["zombie_reveal"] }), disabledIf: pickedCards => pickedCards.some(c => c?.id === "small") },
     ]
   },
   {
     title: "你的团队……",
     cards: [
-      { id: "veteran", emoji: "🤝", label: "老团队", reveal: "士气+15，4名老手，经验足",
-        init: s => ({ ...s, morale: Math.min(100, s.morale + 15), teamSlots: [
-          { id: 'v1', role: 'engineer', seniority: 'veteran', source: 'initial', contribution: { progressEfficiency: 1.1, moraleBase: 5, budgetCoeff: 1.0 } },
-          { id: 'v2', role: 'designer', seniority: 'veteran', source: 'initial', contribution: { progressEfficiency: 1.0, moraleBase: 5, budgetCoeff: 1.0 } },
-          { id: 'v3', role: 'qa',       seniority: 'veteran', source: 'initial', contribution: { progressEfficiency: 0.9, moraleBase: 5, budgetCoeff: 0.9 } },
-          { id: 'v4', role: 'qa', seniority: 'veteran', source: 'initial', contribution: { progressEfficiency: 1.0, moraleBase: 5, budgetCoeff: 1.0 } },
-        ]}) },
-      { id: "fresh", emoji: "🌱", label: "新团队", reveal: "士气-15，2名新人，前4周效率7折",
-        init: s => ({ ...s, morale: Math.max(10, s.morale - 15), teamSlots: [
-          { id: 'f1', role: 'engineer', seniority: 'mid', source: 'initial', contribution: { progressEfficiency: 0.7, moraleBase: 0, budgetCoeff: 0.8 }, weeksJoined: 0 },
-          { id: 'f2', role: 'designer', seniority: 'fresh', source: 'initial', contribution: { progressEfficiency: 0.7, moraleBase: 0, budgetCoeff: 0.7 }, weeksJoined: 0 },
-        ]}) },
+       { id: "veteran", emoji: "🤝", label: "老团队", reveal: "士气+15，4名老手，经验足",
+         init: s => ({ ...s, morale: Math.min(100, s.morale + 15), teamSlots: [
+           { id: 'v1', role: 'engineer', seniority: 'veteran', source: 'initial', contribution: { progressEfficiency: 1.1, moraleBase: 5, budgetCoeff: 1.0 }, name: randomFrom(PERSONALITIES.engineer.names), trait: randomFrom(PERSONALITIES.engineer.traits), background: randomFrom(PERSONALITIES.engineer.backgrounds) },
+           { id: 'v2', role: 'designer', seniority: 'veteran', source: 'initial', contribution: { progressEfficiency: 1.0, moraleBase: 5, budgetCoeff: 1.0 }, name: randomFrom(PERSONALITIES.designer.names), trait: randomFrom(PERSONALITIES.designer.traits), background: randomFrom(PERSONALITIES.designer.backgrounds) },
+           { id: 'v3', role: 'qa',       seniority: 'veteran', source: 'initial', contribution: { progressEfficiency: 0.9, moraleBase: 5, budgetCoeff: 0.9 }, name: randomFrom(PERSONALITIES.qa.names), trait: randomFrom(PERSONALITIES.qa.traits), background: randomFrom(PERSONALITIES.qa.backgrounds) },
+           { id: 'v4', role: 'qa', seniority: 'veteran', source: 'initial', contribution: { progressEfficiency: 1.0, moraleBase: 5, budgetCoeff: 1.0 }, name: randomFrom(PERSONALITIES.qa.names), trait: randomFrom(PERSONALITIES.qa.traits), background: randomFrom(PERSONALITIES.qa.backgrounds) },
+         ]}) },
+       { id: "fresh", emoji: "🌱", label: "新团队", reveal: "士气-15，2名新人，前4周效率7折",
+         init: s => ({ ...s, morale: Math.max(10, s.morale - 15), teamSlots: [
+           { id: 'f1', role: 'engineer', seniority: 'mid', source: 'initial', contribution: { progressEfficiency: 0.7, moraleBase: 0, budgetCoeff: 0.8 }, weeksJoined: 0, name: randomFrom(PERSONALITIES.engineer.names), trait: randomFrom(PERSONALITIES.engineer.traits), background: randomFrom(PERSONALITIES.engineer.backgrounds) },
+           { id: 'f2', role: 'designer', seniority: 'fresh', source: 'initial', contribution: { progressEfficiency: 0.7, moraleBase: 0, budgetCoeff: 0.7 }, weeksJoined: 0, name: randomFrom(PERSONALITIES.designer.names), trait: randomFrom(PERSONALITIES.designer.traits), background: randomFrom(PERSONALITIES.designer.backgrounds) },
+         ]}) },
       { id: "mixed", emoji: "🎲", label: "混搭", reveal: "3人团队，士气随机波动，化学反应未知",
         init: s => {
           const roll = Math.random();
@@ -310,7 +337,7 @@ const CARD_GROUPS = [
             { id: 'm2', role: 'designer', seniority: 'veteran', source: 'initial', contribution: { progressEfficiency: 1.0, moraleBase: 3, budgetCoeff: 1.0 } },
             { id: 'm3', role: 'qa', seniority: 'fresh', source: 'initial', contribution: { progressEfficiency: 0.8, moraleBase: 2, budgetCoeff: 0.8 }, weeksJoined: 0 },
           ]};
-        }},
+        }, disabledIf: pickedCards => pickedCards.some(c => c?.id === "small") },
     ]
   },
   {
@@ -337,6 +364,10 @@ const CARD_GROUPS = [
     ]
   },
 ];
+
+function randomFrom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
 
 function buildInitialState(pickedCards, legacyData, selectedNgYear) {
   const years = [2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026];
@@ -374,30 +405,44 @@ function buildInitialState(pickedCards, legacyData, selectedNgYear) {
     bossTrust = Math.floor(Math.random() * 6) + 3;
   }
 
-  let s = { week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, projectHeadcount: 0, directionChosen: false, directionDelayPenalty: false, marketYear, companySize, kpiState: "normal", ipType, ipActive, ipProtectUsed: 0, ipProtectCount: ipType === "strong" ? 2 : 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, fakeProgress: 0, honestyHintShown: false, peopleHintShown: false, qualityHintShown: false, usedActions: [], lastManageUpResult: null };
+  const bossTrait = randomFrom(PERSONALITIES.boss.traits);
+  const bossName = randomFrom(PERSONALITIES.boss.names);
+  const bossColorIndex = PERSONALITIES.boss.traits.indexOf(bossTrait);
+  const bossAvatarColor = PERSONALITIES.boss.avatarColors[bossColorIndex];
+
+  let s = { week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust, bossPersonality: { name: bossName, trait: bossTrait, avatarColor: bossAvatarColor }, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, projectHeadcount: 0, directionChosen: false, directionDelayPenalty: false, marketYear, companySize, kpiState: "normal", ipType, ipActive, ipProtectUsed: 0, ipProtectCount: ipType === "strong" ? 2 : 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, fakeProgress: 0, honestyHintShown: false, honestyMidHintShown: false, peopleHintShown: false, qualityHintShown: false, usedActions: [], lastManageUpResult: null, characters: [], directionClarity: 50, lowTrustStreak: 0, traitEventsTriggered: [], paratrooperPhase: null, paratrooperAccepted: null, paratrooperStance: null, paratrooperResolution: null, paratrooperTriggerWeek: null };
   for (const card of pickedCards) { if (card) s = card.init(s); }
 
-  if (legacyData) {
-    s.honesty = Math.min(10, s.honesty + Math.floor(legacyData.prevHonesty / 10));
-    s.people = Math.min(10, s.people + Math.floor(legacyData.prevPeople / 10));
-    s.quality = Math.min(10, s.quality + Math.floor(legacyData.prevQuality / 10));
-    s.judgment = Math.min(10, s.judgment + Math.floor(legacyData.prevJudgment / 10));
-    s.grit = Math.min(10, s.grit + Math.floor(legacyData.prevGrit / 10));
+  s.directionClarity = getInitialDirectionClarity(null, companySize);
 
-    if (legacyData.legacyMembers && legacyData.legacyMembers.length > 0) {
-      const legacySlots = legacyData.legacyMembers.map(m => ({
-        id: `legacy_${m.role}_${m.name}`,
-        role: m.role,
-        seniority: m.seniority,
-        source: "legacy",
-        contribution: m.role === "engineer"
-          ? { progressEfficiency: 1.1, moraleBase: 3, budgetCoeff: 1.0 }
-          : { progressEfficiency: 1.0, moraleBase: 2, budgetCoeff: 0.9 },
-        weeksJoined: 0,
-      }));
-      s.teamSlots = [...s.teamSlots, ...legacySlots];
+  if (legacyData) {
+      s.honesty = Math.min(10, s.honesty + Math.floor(legacyData.prevHonesty / 10));
+      s.people = Math.min(10, s.people + Math.floor(legacyData.prevPeople / 10));
+      s.quality = Math.min(10, s.quality + Math.floor(legacyData.prevQuality / 10));
+      s.judgment = Math.min(10, s.judgment + Math.floor(legacyData.prevJudgment / 10));
+      s.grit = Math.min(10, s.grit + Math.floor(legacyData.prevGrit / 10));
+
+      if (legacyData.legacyMembers && legacyData.legacyMembers.length > 0) {
+        const usedNames = [];
+        const legacySlots = legacyData.legacyMembers.map(m => {
+          const name = m.name || generateMemberName(m.role, usedNames);
+          usedNames.push(name);
+          return {
+            id: `legacy_${m.role}_${name}`,
+            role: m.role,
+            seniority: m.seniority,
+            name,
+            trait: m.trait || generateMemberTrait(m.role),
+            source: "legacy",
+            contribution: m.role === "engineer"
+              ? { progressEfficiency: 1.1, moraleBase: 3, budgetCoeff: 1.0 }
+              : { progressEfficiency: 1.0, moraleBase: 2, budgetCoeff: 0.9 },
+            weeksJoined: 0,
+          };
+        });
+        s.teamSlots = [...s.teamSlots, ...legacySlots];
+      }
     }
-  }
   
   return s;
 }
@@ -406,6 +451,241 @@ function buildInitialState(pickedCards, legacyData, selectedNgYear) {
 
 const CAMPUS_TAGS = ["算法竞赛参赛经历", "实习半年", "设计学院优等生", "开源项目贡献者", "游戏爱好者"];
 const SOCIAL_TAGS = ["前大厂经历", "独立游戏开发者", "带过5人团队", "上线过3款产品", "擅长跨部门协作"];
+
+const PERSONALITIES = {
+  boss: {
+    names: ["张总", "李总", "王总"],
+    traits: ["严厉", "温和", "多疑"],
+    avatarColors: ["#e53935", "#43a047", "#1976d2"],
+    idiosyncrasies: {
+      "严厉": { trustDecayRate: 1.2, manageUpSuccessRate: 0.6 },
+      "温和": { trustDecayRate: 0.8, manageUpSuccessRate: 0.8 },
+      "多疑": { trustDecayRate: 1.1, manageUpSuccessRate: 0.4 },
+    }
+  },
+  engineer: {
+    names: ["小陈", "老李", "阿峰", "大勇", "小周"],
+    traits: ["严谨", "激进", "摸鱼"],
+    backgrounds: ["外包出身", "全栈大神", "应届生"],
+  },
+  designer: {
+    names: ["阿雅", "小桃", "晓敏", "李晴", "阿杰"],
+    traits: ["细节控", "脑洞大", "工具人"],
+    backgrounds: ["独立游戏", "美术转策划", "文案出身"],
+  },
+  qa: {
+    names: ["赵姐", "小钱", "孙哥", "小吴", "阿龙"],
+    traits: ["严谨", "佛系", "背锅"],
+    backgrounds: ["测试开发", "客服转测试", "应届生"],
+  },
+};
+
+// ---- Patch 36: 团队角色系统辅助函数 ------------------------------------------
+function generateMemberName(role, usedNames = []) {
+  const pool = PERSONALITIES[role]?.names || PERSONALITIES.engineer.names;
+  const available = pool.filter(n => !usedNames.includes(n));
+  return available.length > 0 ? available[Math.floor(Math.random() * available.length)] : pool[0];
+}
+
+function generateMemberTrait(role) {
+  return PERSONALITIES[role]?.traits?.[Math.floor(Math.random() * PERSONALITIES[role].traits.length)] || "普通";
+}
+
+function getMemberByTrait(slots, preferredTraits, role = null) {
+  if (slots.length === 0) return null;
+  const candidates = role ? slots.filter(m => m.role === role) : slots;
+  if (candidates.length === 0) return slots[0];
+  
+  for (const trait of preferredTraits) {
+    const match = candidates.find(m => m.trait === trait);
+    if (match) return match;
+  }
+  return candidates[0];
+}
+
+function getTeamTraitStats(slots) {
+  const stats = { slacker: 0, rigorous: 0, total: slots.length };
+  slots.forEach(m => {
+    if (m.trait === "摸鱼") stats.slacker++;
+    if (m.trait === "严谨") stats.rigorous++;
+  });
+  return stats;
+}
+
+// ---- Patch 35: 角色姓名池 --------------------------------------------------
+const NAME_POOL = {
+  2012: {
+    engineer: ["陈凯", "林强", "黄波"],
+    designer: ["李萌", "王芳", "赵敏"],
+    qa: ["张静", "周丽", "吴琼"],
+    source: "2012 Chinese Internet boom era"
+  },
+  2016: {
+    engineer: ["小枫", "阿杰", "洛天"],
+    designer: ["小桃", "阿雅", "晓敏"],
+    qa: ["小琪", "小慧", "小娟"],
+    source: "2016 ACG industry boom era"
+  },
+  2020: {
+    engineer: ["宇轩", "晨阳", "星辰"],
+    designer: ["伊诺", "诗涵", "雅柔"],
+    qa: ["思琪", "语涵", "梓萱"],
+    source: "2020 mobile game era"
+  },
+};
+
+const DEFAULT_NAMES = {
+  engineer: ["小陈", "阿峰", "大勇"],
+  designer: ["李晴", "阿杰", "小周"],
+  qa: ["赵姐", "小钱", "孙哥"],
+};
+
+const NAME_TAGS = {
+  "陈凯": "前盛大技术总监",
+  "林强": "端游核心开发",
+  "黄波": "页游架构师",
+  "李萌": "端游策划出身",
+  "王芳": "数值策划专家",
+  "赵敏": "系统策划经验丰富",
+  "张静": "QC团队组长",
+  "周丽": "资深测试工程师",
+  "吴琼": "性能测试专家",
+  "小枫": "独立游戏开发者",
+  "阿杰": "二次元游戏主程",
+  "洛天": "图形算法工程师",
+  "小桃": "B站UP主",
+  "阿雅": "知名画师",
+  "晓敏": "ACG文案编剧",
+  "小琪": "硬核玩家转测试",
+  "小慧": "社区QA负责人",
+  "小娟": "兼容性测试专家",
+  "宇轩": "原神氪佬",
+  "晨阳": "Unity大神",
+  "星辰": "移动端性能优化专家",
+  "伊诺": "乙女向文案",
+  "诗涵": "国风美术设计师",
+  "雅柔": "二次元角色设计",
+  "思琪": "抽卡概率测试员",
+  "语涵": "剧情QA负责人",
+  "梓萱": "多语言测试专家",
+};
+
+function randomName(marketYear, role, usedNames = []) {
+  const yearKey = marketYear >= 2020 ? 2020 : marketYear >= 2016 ? 2016 : marketYear >= 2012 ? 2012 : null;
+  const pool = yearKey && NAME_POOL[yearKey] ? NAME_POOL[yearKey][role] : DEFAULT_NAMES[role];
+  const available = pool.filter(n => !usedNames.includes(n));
+  return available.length > 0 ? randomFrom(available) : randomFrom(DEFAULT_NAMES[role]);
+}
+
+function nameToTag(name) {
+  return NAME_TAGS[name] || "普通从业者";
+}
+
+function generateCharacterName(usedNames = []) {
+  const allNames = [
+    ...DEFAULT_NAMES.engineer, ...DEFAULT_NAMES.designer, ...DEFAULT_NAMES.qa,
+    ...NAME_POOL[2012].engineer, ...NAME_POOL[2012].designer, ...NAME_POOL[2012].qa,
+    ...NAME_POOL[2016].engineer, ...NAME_POOL[2016].designer, ...NAME_POOL[2016].qa,
+    ...NAME_POOL[2020].engineer, ...NAME_POOL[2020].designer, ...NAME_POOL[2020].qa,
+  ];
+  const uniqueNames = [...new Set(allNames)];
+  const available = uniqueNames.filter(n => !usedNames.includes(n));
+  return available.length > 0 ? randomFrom(available) : randomFrom(uniqueNames);
+}
+
+function getInitialDirectionClarity(gameDirection, studioScale) {
+  const tierBase = { small: 70, mid: 50, large: 35, xlarge: 20 };
+  const scalePenalty = { small: 0, mid: 5, large: 15 };
+  const headcount = gameDirection ? getProjectTeamSize(gameDirection, studioScale) : 10;
+  const tier = getScaleTier(headcount);
+  return tierBase[tier] - (scalePenalty[studioScale] || 0);
+}
+
+const PERSONALITY_TYPES = ["幻想家", "空中楼阁", "伞兵", "完美主义", "布道者", "自由发挥", "远见", "铁头功"];
+
+function getPersonalityActivationCondition(type, gameDirection, studioScale) {
+  switch (type) {
+    case "幻想家":
+    case "完美主义":
+    case "布道者":
+    case "自由发挥":
+      return true;
+    case "远见":
+      return ["OPENWORLD", "ARPG", "SLG", "PC_MMO"].includes(gameDirection);
+    case "铁头功":
+    case "空中楼阁":
+    case "伞兵":
+      return studioScale !== "small";
+    default:
+      return false;
+  }
+}
+
+function getPersonalityRole(type) {
+  const roleMap = {
+    "幻想家": "designer", "空中楼阁": "designer", "伞兵": "engineer",
+    "完美主义": "qa", "布道者": "designer", "自由发挥": "engineer",
+    "远见": "designer", "铁头功": "engineer"
+  };
+  return roleMap[type] || "engineer";
+}
+
+function generateCharactersForGame(gameDirection, studioScale, marketYear) {
+  const usedNames = [];
+  const characters = [];
+  let charId = 0;
+  for (const type of PERSONALITY_TYPES) {
+    if (getPersonalityActivationCondition(type, gameDirection, studioScale)) {
+      const role = getPersonalityRole(type);
+      const name = randomName(marketYear, role, usedNames);
+      usedNames.push(name);
+      characters.push({
+        id: `char_${String(charId++).padStart(3, "0")}`,
+        name,
+        type,
+        motivation: randomFrom(["项目成功", "个人成长", "团队和谐", "技术挑战"]),
+        relationship: 0,
+        active: true,
+        history: [],
+        tag: nameToTag(name),
+        role,
+      });
+    }
+  }
+  return characters;
+}
+
+function getPersonalityWeight(type, state) {
+  const tier = getScaleTier(state.projectHeadcount || 10);
+  switch (type) {
+    case "完美主义":
+      return (state.qualityDebt || 0) >= 3 ? 2.0
+           : (state.qualityDebt || 0) >= 1 ? 1.3 : 0.8;
+    case "幻想家":
+      return ((state.week || 1) <= 8 || (state.directionClarity || 50) < 40) ? 1.8 : 0.9;
+    case "远见":
+      return (["xlarge", "large"].includes(tier) && (state.week || 1) <= 10) ? 1.8 : 0.5;
+    case "布道者":
+      return ((state.morale || 75) < 50 || (state.projectHeadcount || 0) > 10) ? 1.6 : 0.8;
+    case "铁头功":
+      return ((state.teamSlots && state.teamSlots.length >= 4) || (state.projectHeadcount || 0) > 15) ? 1.5 : 0.7;
+    case "自由发挥":
+      return 1.0;
+    case "空中楼阁":
+      return ((state.budget || 100) < 40 || ((state.week || 1) % 4 === 0)) ? 1.8 : 0.9;
+    case "伞兵":
+      return 0;
+    default:
+      return 1.0;
+  }
+}
+
+function getAppearanceWeight(char, state) {
+  let weight = 1.0;
+  weight += (char.relationship || 0) * 0.3;
+  weight *= getPersonalityWeight(char.type, state);
+  return Math.max(0.05, weight);
+}
 
 const ROLE_NAMES = {
   engineer: "程序员",
@@ -421,6 +701,230 @@ const SENIORITY_NAMES = {
   fresh: "应届生"
 };
 
+// ---- Patch 37: 7个常驻人格类型与阶段定义 --------------------------------
+const PERSONALITY_TRAITS = {
+  engineer_tool: { name: "工具人小李", role: "engineer", desc: "被动接受任务，稳定输出" },
+  engineer_architect: { name: "架构师小陈", role: "engineer", desc: "追求完美，重构狂魔" },
+  engineer_lazy: { name: "摸鱼大王阿峰", role: "engineer", desc: "效率低，但人际关系好" },
+  designer_detail: { name: "细节控小桃", role: "designer", desc: "反复修改，质量高时间长" },
+  designer_creative: { name: "脑洞师阿雅", role: "designer", desc: "创意多，执行力差" },
+  designer_tool: { name: "工具人李晴", role: "designer", desc: "准时交付，内容平庸" },
+  qa_strict: { name: "严谨赵姐", role: "qa", desc: "多提bug，影响效率但质量高" },
+  qa_easy: { name: "佛系小钱", role: "qa", desc: "少提bug，效率高但有风险" },
+};
+
+const PERSONALITY_PHASES = {
+  engineer_tool: [
+    { minWeek: 1, maxWeek: 4, efficiency: 0.8, phaseName: "积极适应期" },
+    { minWeek: 5, maxWeek: 8, efficiency: 0.9, phaseName: "熟练期" },
+    { minWeek: 9, maxWeek: 99, efficiency: 1.0, phaseName: "发现问题期", bonus: { progressBonus: 1 } },
+  ],
+  engineer_lazy: [
+    { minWeek: 1, maxWeek: 4, efficiency: 0.5, phaseName: "摸鱼期" },
+    { minWeek: 5, maxWeek: 8, efficiency: 0.7, phaseName: "偶尔加班期" },
+    { minWeek: 9, maxWeek: 12, efficiency: 1.2, phaseName: "紧急爆发期" },
+  ],
+  engineer_architect: [
+    { minWeek: 1, maxWeek: 4, efficiency: 0.6, phaseName: "代码审查期", bonus: { qualityDebt: -3 } },
+    { minWeek: 5, maxWeek: 10, efficiency: 0.8, phaseName: "架构设计期", bonus: { qualityDebt: -5 } },
+    { minWeek: 11, maxWeek: 99, efficiency: 1.1, phaseName: "重构完成期", bonus: { qualityDebt: -2 } },
+  ],
+  designer_detail: [
+    { minWeek: 1, maxWeek: 4, efficiency: 0.7, phaseName: "细节打磨期", bonus: { qualityDebt: -4 } },
+    { minWeek: 5, maxWeek: 9, efficiency: 0.8, phaseName: "风格定型期", bonus: { qualityDebt: -3 } },
+    { minWeek: 10, maxWeek: 99, efficiency: 0.9, phaseName: "品质输出期", bonus: { qualityDebt: -2 } },
+  ],
+  designer_creative: [
+    { minWeek: 1, maxWeek: 5, efficiency: 0.5, phaseName: "灵感爆发期", bonus: { morale: 2 } },
+    { minWeek: 6, maxWeek: 12, efficiency: 0.7, phaseName: "落地困难期" },
+    { minWeek: 13, maxWeek: 99, efficiency: 0.9, phaseName: "创意输出期", bonus: { progressBonus: 1 } },
+  ],
+  designer_tool: [
+    { minWeek: 1, maxWeek: 4, efficiency: 0.8, phaseName: "熟悉需求期" },
+    { minWeek: 5, maxWeek: 8, efficiency: 0.9, phaseName: "稳定输出期" },
+    { minWeek: 9, maxWeek: 99, efficiency: 1.0, phaseName: "可靠交付期" },
+  ],
+  qa_strict: [
+    { minWeek: 1, maxWeek: 4, efficiency: 0.6, phaseName: "建立流程期", bonus: { qualityDebt: -5 } },
+    { minWeek: 5, maxWeek: 10, efficiency: 0.7, phaseName: "严格测试期", bonus: { qualityDebt: -3 } },
+    { minWeek: 11, maxWeek: 99, efficiency: 0.8, phaseName: "质量把关期", bonus: { qualityDebt: -2 } },
+  ],
+  qa_easy: [
+    { minWeek: 1, maxWeek: 6, efficiency: 1.0, phaseName: "佛系放行期", bonus: { qualityDebt: 3 } },
+    { minWeek: 7, maxWeek: 12, efficiency: 1.1, phaseName: "快速通过期", bonus: { qualityDebt: 5 } },
+    { minWeek: 13, maxWeek: 99, efficiency: 1.2, phaseName: "风险积累期", bonus: { qualityDebt: 8 } },
+  ],
+};
+
+const PERSONALITY_EVENTS = [
+  {
+    id: "trait_engineer_tool_phase3",
+    trait: "engineer_tool",
+    triggerWeek: 9,
+    name: "成长",
+    emoji: "🌱",
+    color: "#4ade80",
+    tagline: "「我发现了一些可以优化的地方」",
+    situation: "小李找到你：",
+    dialogue: "制作人，这段时间我熟悉了项目，发现了几个可以优化的地方。如果有时间，我想把这些改进做了，应该能提升整体开发效率。",
+    choices: [
+      { text: "好，安排时间去做", effects: { progress: 5, morale: 5, qualityDebt: -3 }, result: "小李很开心，花了一周时间完成了优化。团队整体效率提升了。" },
+      { text: "先赶进度，以后再说", effects: { morale: -3 }, result: "小李点点头，但你能看出他有些失望。那个优化的事情，他后来再也没提过。" },
+    ],
+  },
+  {
+    id: "trait_engineer_lazy_phase3",
+    trait: "engineer_lazy",
+    triggerWeek: 9,
+    name: "觉醒",
+    emoji: "⚡",
+    color: "#f97316",
+    tagline: "「我知道怎么快速搞定这个」",
+    situation: "阿峰突然站起来：",
+    dialogue: "等等！这个问题我以前遇到过！我知道一个快速解决方案，三天就能搞定——比正常方法快一倍。对了，我游戏里的公会这周要攻城，你们加班我也来！",
+    choices: [
+      { text: "用他的方案，快速推进", effects: { progress: 8, qualityDebt: 5 }, result: "阿峰果然三天就搞定了！团队都惊呆了——原来他摸鱼的时候，居然也在想事情？" },
+      { text: "按正规流程走，稳一点", effects: { progress: 3, morale: -5 }, result: "阿峰耸耸肩坐了回去。方案没用上，他回到了正常的摸鱼节奏。" },
+    ],
+  },
+  {
+    id: "trait_engineer_architect_phase2",
+    trait: "engineer_architect",
+    triggerWeek: 5,
+    name: "重构提议",
+    emoji: "🏗️",
+    color: "#60a5fa",
+    tagline: "「这个架构有问题，我们需要重构」",
+    situation: "小陈发来一份长长的架构设计文档：",
+    dialogue: "制作人，我分析了现有代码，发现底层架构有几个严重的设计缺陷。如果现在重构，未来可以避免很多技术债。大概需要两周时间。",
+    choices: [
+      { text: "批准重构，长期收益更重要", effects: { progress: -5, qualityDebt: -15, morale: 8 }, result: "小陈用两周时间完成了重构。代码质量提升明显，后面的开发确实顺畅了很多。" },
+      { text: "先记下来，上线后再做", effects: { morale: -8, qualityDebt: 8 }, result: "小陈很失望。那段烂代码就像一根刺，每次改相关功能他都要吐槽一遍。" },
+    ],
+  },
+  {
+    id: "trait_designer_detail_phase3",
+    trait: "designer_detail",
+    triggerWeek: 10,
+    name: "匠心",
+    emoji: "🎨",
+    color: "#ec4899",
+    tagline: "「我觉得这个界面还可以再优化一下」",
+    situation: "小桃发来第17版UI设计稿：",
+    dialogue: "制作人，这个界面我又调整了一下。主要是按钮的圆角从8px改成了9px，阴影透明度从12%调到了11%，整体感觉更精致了。你看看？",
+    choices: [
+      { text: "通过，品质很重要", effects: { morale: 5, qualityDebt: -8, progress: -2 }, result: "小桃满意地去做下一个界面了。虽然花了点时间，但你不得不承认，那个按钮确实更好看了。" },
+      { text: "不用改了，就这样吧", effects: { morale: -10 }, result: "小桃沉默了很久。她最终没有再坚持，但你能感觉到，她对那个8px圆角的遗憾。" },
+    ],
+  },
+  {
+    id: "trait_designer_creative_phase3",
+    trait: "designer_creative",
+    triggerWeek: 13,
+    name: "创意落地",
+    emoji: "💡",
+    color: "#fbbf24",
+    tagline: "「这个想法我想了三个月！」",
+    situation: "阿雅兴奋地冲进办公室：",
+    dialogue: "我想到了！那个困扰我们三个月的玩法创意，我终于想通怎么落地了！虽然比预期复杂一点，但做出来玩家一定会喜欢的！给我两周就行！",
+    choices: [
+      { text: "太棒了，去做吧！", effects: { morale: 10, progress: 5, qualityDebt: -5, budget: -5 }, result: "阿雅用两周实现了那个创意。测试反馈很好，团队士气也被她的热情带动了。" },
+      { text: "太复杂了，简化一下", effects: { morale: -5, progress: 2 }, result: "阿雅按照要求做了简化版。功能是有了，但少了那股让人眼前一亮的灵气。" },
+    ],
+  },
+  {
+    id: "trait_qa_strict_phase2",
+    trait: "qa_strict",
+    triggerWeek: 5,
+    name: "发现问题",
+    emoji: "🔍",
+    color: "#14b8a6",
+    tagline: "「这个模块有23个bug」",
+    situation: "赵姐拿着厚厚的测试报告找到你：",
+    dialogue: "制作人，这是核心模块的测试结果。一共23个bug，其中5个严重，8个中等。我建议这两周集中修bug，不然越往后越难改。",
+    choices: [
+      { text: "按赵姐说的，集中修bug", effects: { progress: -3, qualityDebt: -20, morale: 3 }, result: "两周后，核心模块稳定了很多。程序组虽然抱怨测试太严，但也承认这些bug确实该修。" },
+      { text: "先修严重的，其他以后再说", effects: { qualityDebt: -8, progress: 2 }, result: "5个严重bug修了。赵姐把剩下的18个bug列进了已知问题列表，等待那个永远不会来的以后。" },
+    ],
+  },
+  {
+    id: "trait_qa_easy_warning",
+    trait: "qa_easy",
+    triggerWeek: 12,
+    name: "隐患",
+    emoji: "⚠️",
+    color: "#ef4444",
+    tagline: "「这个bug可能会在上线后爆发」",
+    situation: "小钱私下找到你：",
+    dialogue: "制作人，有个事我得跟你说一下。有个底层bug我一直没提——改起来太麻烦，而且我们测试了几十次都没复现。但是...我总觉得这个雷，可能会在上线后炸。",
+    choices: [
+      { text: "现在就修，不能留隐患", effects: { progress: -5, budget: -5, qualityDebt: -15 }, result: "花了一周把那个bug彻底解决了。上线那天，小钱终于睡了个安稳觉。" },
+      { text: "概率低，上线后再说", effects: { qualityDebt: 20, progress: 3 }, result: "你决定赌一把。小钱叹了口气，在心里祈祷这个bug永远不要被触发。" },
+    ],
+  },
+];
+
+function getMemberPhaseInfo(member, currentWeek) {
+  if (!member.trait || !PERSONALITY_PHASES[member.trait]) return null;
+  const weeksSinceJoin = member.weeksJoined || 0;
+  const phases = PERSONALITY_PHASES[member.trait];
+  const current = phases.find(p => weeksSinceJoin >= p.minWeek && weeksSinceJoin <= p.maxWeek);
+  const next = phases.find(p => p.minWeek > weeksSinceJoin);
+  return { current, next, weeksSinceJoin };
+}
+
+function assignRandomTrait(role) {
+  const traitMap = {
+    engineer: ["engineer_tool", "engineer_architect", "engineer_lazy"],
+    designer: ["designer_detail", "designer_creative", "designer_tool"],
+    qa: ["qa_strict", "qa_easy"],
+  };
+  const traits = traitMap[role] || traitMap.engineer;
+  return traits[Math.floor(Math.random() * traits.length)];
+}
+
+function mapChineseTraitToKey(trait, role) {
+  const traitMap = {
+    engineer: {
+      "严谨": "engineer_architect",
+      "激进": "engineer_tool",
+      "摸鱼": "engineer_lazy",
+    },
+    designer: {
+      "细节控": "designer_detail",
+      "脑洞大": "designer_creative",
+      "工具人": "designer_tool",
+    },
+    qa: {
+      "严谨": "qa_strict",
+      "佛系": "qa_easy",
+      "背锅": "qa_easy",
+    },
+  };
+  return traitMap[role]?.[trait] || trait;
+}
+
+function checkTraitEvents(state) {
+  for (let i = 0; i < state.teamSlots.length; i++) {
+    const member = state.teamSlots[i];
+    if (!member.trait) continue;
+    
+    const traitKey = mapChineseTraitToKey(member.trait, member.role);
+    
+    const matchingEvent = PERSONALITY_EVENTS.find(e => 
+      e.trait === traitKey && 
+      member.weeksJoined === e.triggerWeek &&
+      !state.traitEventsTriggered?.includes(e.id)
+    );
+    
+    if (matchingEvent) {
+      return { ...matchingEvent, memberIndex: i, memberName: member.name };
+    }
+  }
+  return null;
+}
+// ---- End Patch 37 ----------------------------------------------------------
+
 const ROLE_EMOJI = {
   engineer: "🔨",
   designer: "🎨",
@@ -428,6 +932,8 @@ const ROLE_EMOJI = {
   qa: "🔍",
   other: "🧩"
 };
+
+const BOSS_EMOJI = "👔";
 
 function getTeamProgressCoeff(slots, gameDirection) {
   const count = slots.length;
@@ -537,23 +1043,27 @@ const ACTIONS = [
   { id: "verify", emoji: "🔎", label: "深入验收", ap: 2, desc: "解锁本月 milestone B 选项（看原始 build）", always: false,
     available: (s, ctx) => ctx.isMonthEnd && !s.verifyUsedThisMonth,
     apply: s => ({ ...s, verifyUsedThisMonth: true }) },
-  { id: "manage_up", emoji: "☕", label: "向上管理", ap: 2, desc: "老板信任度+1（低信任时失败无惩罚）", always: true,
-    available: s => s.bossTrust < 10,
-    apply: s => {
-      const atFloor = s.bossTrust <= 1;
-      const successRate = s.bossTrust === 0 ? 1.0
-        : s.bossTrust >= 7 ? 0.75
-        : s.bossTrust <= 3 ? 0.50
-        : 0.65;
-      const success = Math.random() < successRate;
-      const trustGain = success ? 1 : (atFloor ? 0 : -1);
-      return {
-        ...s,
-        bossTrust: Math.max(0, Math.min(10, s.bossTrust + trustGain)),
-        manageUpCount: (s.manageUpCount || 0) + 1,
-        lastManageUpResult: success ? "success" : "fail",
-      };
-    } },
+       { id: "manage_up", emoji: "☕", label: "向上管理", ap: 2, desc: "老板信任度+1（低信任时失败无惩罚）", always: true,
+         available: s => s.bossTrust < 10,
+         apply: s => {
+           const atFloor = s.bossTrust <= 1;
+           const baseRate = s.bossTrust === 0 ? 1.0
+             : s.bossTrust >= 7 ? 0.75
+             : s.bossTrust <= 3 ? 0.50
+             : 0.65;
+           const personalityMultiplier = s.bossPersonality
+             ? PERSONALITIES.boss.idiosyncrasies[s.bossPersonality.trait]?.manageUpSuccessRate || 1.0
+             : 1.0;
+           const successRate = baseRate * personalityMultiplier;
+           const success = Math.random() < successRate;
+           const trustGain = success ? 1 : (atFloor ? 0 : -1);
+           return {
+             ...s,
+             bossTrust: Math.max(0, Math.min(10, s.bossTrust + trustGain)),
+             manageUpCount: (s.manageUpCount || 0) + 1,
+             lastManageUpResult: success ? "success" : "fail",
+           };
+         } },
 ];
 
 // ---- events ----------------------------------------------------------------
@@ -1489,9 +1999,10 @@ function ChoicePreview({ effects, progressBonus }) {
   );
 }
 
-function WorkModeSelector({ workMode, setWorkMode, overtimeType, setOvertimeType, pieCount, progress, apSpent, apBonus }) {
+function WorkModeSelector({ workMode, setWorkMode, overtimeType, setOvertimeType, pieCount, progress, apSpent, apBonus, companySize }) {
   const isOvertime = workMode !== "normal";
   const piePenalty = isOvertime ? calcPiePenalty(workMode, pieCount, progress) : 0;
+  const adjustedBudgetCost = Math.round(WORK_MODES[workMode].budgetCost * OVERTIME_COST_MULTIPLIER[companySize]);
   const modeBtn = (key) => {
     const m = WORK_MODES[key];
     const active = workMode === key;
@@ -1509,9 +2020,9 @@ function WorkModeSelector({ workMode, setWorkMode, overtimeType, setOvertimeType
       </div>
       {isOvertime && (
         <div style={{ display: "flex", gap: 5 }}>
-          <button onClick={() => setOvertimeType("pay")} style={{ flex: 1, padding: "7px 8px", fontSize: 13, background: overtimeType === "pay" ? "#0d2010" : "#08080f", border: `1px solid ${overtimeType === "pay" ? "#166534" : "#1e1e2e"}`, color: overtimeType === "pay" ? "#4ade80" : "#c7c7c7", borderRadius: 6, cursor: "pointer" }}>
-            💰 付加班费 -{WORK_MODES[workMode].budgetCost}预算
-          </button>
+           <button onClick={() => setOvertimeType("pay")} style={{ flex: 1, padding: "7px 8px", fontSize: 13, background: overtimeType === "pay" ? "#0d2010" : "#08080f", border: `1px solid ${overtimeType === "pay" ? "#166534" : "#1e1e2e"}`, color: overtimeType === "pay" ? "#4ade80" : "#c7c7c7", borderRadius: 6, cursor: "pointer" }}>
+             💰 付加班费 -{adjustedBudgetCost}预算
+           </button>
           <button onClick={() => setOvertimeType("pie")} style={{ flex: 1, padding: "7px 8px", fontSize: 13, background: overtimeType === "pie" ? "#2d0a0a" : "#08080f", border: `1px solid ${overtimeType === "pie" ? "#7f1d1d" : "#1e1e2e"}`, color: overtimeType === "pie" ? "#f87171" : "#c7c7c7", borderRadius: 6, cursor: "pointer" }}>
             🥧 画饼{pieCount > 0 ? `×${pieCount + 1}` : ""} -{piePenalty}士气
           </button>
@@ -1769,12 +2280,13 @@ function CardScreen({ step, pickedCards, onPick, onNext }) {
       <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
         {group.cards.map((card, cardIdx) => {
           const isSelected = picked?.id === card.id;
+          const isDisabled = card.disabledIf && card.disabledIf(pickedCards);
           return (
-            <button key={card.id} onClick={() => !picked && onPick(step, card)} style={{ flex: 1, padding: "16px 10px", background: isSelected ? "#0d1a0d" : "#0c0c18", border: `1px solid ${isSelected ? "#166534" : "#1e1e2e"}`, borderRadius: 10, cursor: picked ? "default" : "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, transition: "all 0.2s", animation: `fadeUp 0.35s ease ${0.25 + cardIdx * 0.1}s forwards`, opacity: 0 }}
-              onMouseEnter={e => !picked && (e.currentTarget.style.borderColor = "#4a4a7a")}
-              onMouseLeave={e => !picked && !isSelected && (e.currentTarget.style.borderColor = "#1e1e2e")}>
+            <button key={card.id} onClick={() => !picked && !isDisabled && onPick(step, card)} style={{ flex: 1, padding: "16px 10px", background: isDisabled ? "#050508" : isSelected ? "#0d1a0d" : "#0c0c18", border: `1px solid ${isDisabled ? "#101018" : isSelected ? "#166534" : "#1e1e2e"}`, borderRadius: 10, cursor: picked || isDisabled ? "default" : "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, transition: "all 0.2s", animation: `fadeUp 0.35s ease ${0.25 + cardIdx * 0.1}s forwards`, opacity: isDisabled ? 0.3 : 0 }}
+              onMouseEnter={e => !picked && !isDisabled && (e.currentTarget.style.borderColor = "#4a4a7a")}
+              onMouseLeave={e => !picked && !isDisabled && !isSelected && (e.currentTarget.style.borderColor = "#1e1e2e")}>
               <span style={{ fontSize: 32 }}>{card.emoji}</span>
-              <span style={{ fontSize: 14, color: isSelected ? "#4ade80" : "#888" }}>{card.label}</span>
+              <span style={{ fontSize: 14, color: isDisabled ? "#444" : isSelected ? "#4ade80" : "#888" }}>{card.label}</span>
             </button>
           );
         })}
@@ -1837,13 +2349,13 @@ const DIRECTION_TEAM_SCALE = {
   PARTY:         { projectTeamSize: 25, budgetDrainMultiplier: 1.2,  sweetSpot: 3, minViable: 2, overcrowd: 5 },
   ARPG:          { projectTeamSize: 35, budgetDrainMultiplier: 1.4,  sweetSpot: 4, minViable: 3, overcrowd: 6 },
   GLOBAL:        { projectTeamSize: 40, budgetDrainMultiplier: 1.5,  sweetSpot: 4, minViable: 3, overcrowd: 6 },
-  AI_NATIVE:     { projectTeamSize: 35, budgetDrainMultiplier: 1.4,  sweetSpot: 4, minViable: 3, overcrowd: 6 },
-  METAVERSE:     { projectTeamSize: 45, budgetDrainMultiplier: 1.6,  sweetSpot: 4, minViable: 3, overcrowd: 6 },
+  AI_NATIVE:     { projectTeamSize: 20, budgetDrainMultiplier: 1.4,  sweetSpot: 4, minViable: 3, overcrowd: 6 },
+  METAVERSE:     { projectTeamSize: 100, budgetDrainMultiplier: 1.6, sweetSpot: 4, minViable: 3, overcrowd: 6 },
   IP_PORT:       { projectTeamSize: 40, budgetDrainMultiplier: 1.5,  sweetSpot: 4, minViable: 3, overcrowd: 6 },
   BATTLE_ROYALE: { projectTeamSize: 50, budgetDrainMultiplier: 1.7,  sweetSpot: 5, minViable: 4, overcrowd: 6 },
   MOBA:          { projectTeamSize: 50, budgetDrainMultiplier: 1.7,  sweetSpot: 5, minViable: 4, overcrowd: 6 },
-  OPENWORLD:     { projectTeamSize: 60, budgetDrainMultiplier: 1.8,  sweetSpot: 5, minViable: 4, overcrowd: 6 },
-  PC_MMO:        { projectTeamSize: 55, budgetDrainMultiplier: 1.8,  sweetSpot: 5, minViable: 4, overcrowd: 6 },
+  OPENWORLD:     { projectTeamSize: 300, budgetDrainMultiplier: 1.8, sweetSpot: 5, minViable: 4, overcrowd: 6 },
+  PC_MMO:        { projectTeamSize: 50, budgetDrainMultiplier: 1.8,  sweetSpot: 5, minViable: 4, overcrowd: 6 },
 };
 
 const YEAR_DATA = {
@@ -2584,7 +3096,11 @@ export default function App() {
    const [state, setState] = useState(() => {
      const years = [2010, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026];
      const marketYear = years[Math.floor(Math.random() * years.length)];
-     return { week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust: Math.floor(Math.random() * 6) + 3, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, projectHeadcount: 0, directionChosen: false, directionDelayPenalty: false, marketYear, companySize: "mid", kpiState: "normal", ipType: "none", ipActive: false, ipProtectUsed: 0, ipProtectCount: 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, fakeProgress: 0, honestyHintShown: false, honestyMidHintShown: false, peopleHintShown: false, qualityHintShown: false, usedActions: [], lastManageUpResult: null };
+     const bossTrait = randomFrom(PERSONALITIES.boss.traits);
+     const bossName = randomFrom(PERSONALITIES.boss.names);
+     const bossColorIndex = PERSONALITIES.boss.traits.indexOf(bossTrait);
+     const bossAvatarColor = PERSONALITIES.boss.avatarColors[bossColorIndex];
+     return { week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust: Math.floor(Math.random() * 6) + 3, bossPersonality: { name: bossName, trait: bossTrait, avatarColor: bossAvatarColor }, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, projectHeadcount: 0, directionChosen: false, directionDelayPenalty: false, marketYear, companySize: "mid", kpiState: "normal", ipType: "none", ipActive: false, ipProtectUsed: 0, ipProtectCount: 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, fakeProgress: 0, honestyHintShown: false, honestyMidHintShown: false, peopleHintShown: false, qualityHintShown: false, usedActions: [], lastManageUpResult: null };
    });
 
   const [workMode, setWorkMode] = useState("normal");
@@ -2656,31 +3172,38 @@ export default function App() {
      if (action.id === "freeze") setFreezeDone(true);
    }, [apLeftForAction, state, ctxForAction, healthTierForAction]);
 
-  const handleHireCandidate = useCallback(() => {
-    if (!recruitCandidate) return;
-    const { type, role, seniority, apCost, hiddenType } = recruitCandidate;
-    const newMember = {
-      id: `${type}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-      role,
-      seniority,
-      source: type,
-      contribution: seniority === "veteran"
-        ? { progressEfficiency: 1.2, moraleBase: 0, budgetCoeff: 1.3 }
-        : seniority === "mid"
-        ? { progressEfficiency: 0.9, moraleBase: 2, budgetCoeff: 0.9 }
-        : { progressEfficiency: 0.5, moraleBase: -2, budgetCoeff: 0.5 },
-      weeksJoined: 0,
-      hiddenType,
-    };
-    setState(prev => ({
-      ...prev,
-      teamSlots: [...prev.teamSlots, newMember],
-      budget: type === "social" ? Math.max(0, prev.budget - 15) : prev.budget,
-    }));
-    setApSpent(p => p + apCost);
-    setRecruitResultMessage(`${ROLE_NAMES[role]} 加入了团队。`);
-    setRecruitCandidate(null);
-  }, [recruitCandidate]);
+   const handleHireCandidate = useCallback(() => {
+     if (!recruitCandidate) return;
+     const { type, role, seniority, apCost, hiddenType } = recruitCandidate;
+     const newMember = {
+       id: `${type}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+       role,
+       seniority,
+       source: type,
+       contribution: seniority === "veteran"
+         ? { progressEfficiency: 1.2, moraleBase: 0, budgetCoeff: 1.3 }
+         : seniority === "mid"
+         ? { progressEfficiency: 0.9, moraleBase: 2, budgetCoeff: 0.9 }
+         : { progressEfficiency: 0.5, moraleBase: -2, budgetCoeff: 0.5 },
+       weeksJoined: 0,
+       hiddenType,
+       name: randomFrom(PERSONALITIES[role].names),
+       trait: randomFrom(PERSONALITIES[role].traits),
+       background: randomFrom(PERSONALITIES[role].backgrounds),
+     };
+      setState(prev => {
+        const baseCost = type === "social" ? 15 : 0;
+        const adjustedCost = Math.round(baseCost * RECRUIT_COST_MULTIPLIER[prev.companySize]);
+        return {
+          ...prev,
+          teamSlots: [...prev.teamSlots, newMember],
+          budget: Math.max(0, prev.budget - adjustedCost),
+        };
+      });
+     setApSpent(p => p + apCost);
+     setRecruitResultMessage(`${newMember.name}（${ROLE_NAMES[role]}）加入了团队。`);
+     setRecruitCandidate(null);
+   }, [recruitCandidate]);
 
   const handleSkipCandidate = useCallback(() => {
     setRecruitCandidate(null);
@@ -2719,20 +3242,72 @@ export default function App() {
   const [monthSummaryData, setMonthSummaryData] = useState(null);
   const [monthStartProgress, setMonthStartProgress] = useState(0);
 
-  const [pendingMilestone, setPendingMilestone] = useState(null);
+   const [pendingMilestone, setPendingMilestone] = useState(null);
 
-  const [event, setEvent] = useState(null);
-  const [showResult, setShowResult] = useState(false);
-  const [lastResult, setLastResult] = useState("");
-  const [lastConfidantReveal, setLastConfidantReveal] = useState("");
-  const [lastBossReaction, setLastBossReaction] = useState("");
-  const [lastEffects, setLastEffects] = useState(null);
-  const [lastWorkEffect, setLastWorkEffect] = useState(null);
-   const [animKey, setAnimKey] = useState(0);
-   const [legacyData, setLegacyData] = useState(null);
-   const [selectedNgYear, setSelectedNgYear] = useState(null);
+   const [event, setEvent] = useState(null);
+   const [showResult, setShowResult] = useState(false);
+   const [lastResult, setLastResult] = useState("");
+   const [lastConfidantReveal, setLastConfidantReveal] = useState("");
+   const [lastBossReaction, setLastBossReaction] = useState("");
+   const [lastEffects, setLastEffects] = useState(null);
+   const [lastWorkEffect, setLastWorkEffect] = useState(null);
+    const [animKey, setAnimKey] = useState(0);
+    const [legacyData, setLegacyData] = useState(null);
+    const [selectedNgYear, setSelectedNgYear] = useState(null);
 
-   const DEBUG = window.location.hostname === "localhost";
+    const DEBUG = window.location.hostname === "localhost";
+
+    const [weekProcessed, setWeekProcessed] = useState(false);
+    
+    useEffect(() => {
+      if (weekPhase === "event" && event === null && state.gamePhase === "playing" && !weekProcessed) {
+        setWeekProcessed(true);
+        setState(prev => {
+          let newState = { ...prev };
+          
+          const baseBudgetCost = WORK_MODES[workMode].budgetCost;
+          const adjustedBudgetCost = Math.round(baseBudgetCost * OVERTIME_COST_MULTIPLIER[prev.companySize]);
+          
+          const workEffect = {
+            workMode,
+            overtimeType,
+            progressBonus: WORK_MODES[workMode].progressBonus,
+            budgetCost: adjustedBudgetCost,
+            moralePenalty: workMode !== "normal" && overtimeType !== "pay" ? calcPiePenalty(workMode, pieCount, prev.progress) : 0,
+            weeklyDrain: Math.round(getWeeklyBudgetDrain(Math.ceil(prev.week / 4)) * getKpiBudgetMultiplier(prev.kpiState) * (DIRECTION_TEAM_SCALE[prev.gameDirection]?.budgetDrainMultiplier || 1) * (STUDIO_BUDGET_MULTIPLIER[prev.companySize] || 1)),
+          };
+          
+          newState.progress = Math.min(100, prev.progress + workEffect.progressBonus + (prev.progressMomentum || 0));
+          newState.budget = Math.max(0, prev.budget - workEffect.budgetCost - workEffect.weeklyDrain);
+          newState.morale = Math.max(0, Math.min(100, prev.morale - workEffect.moralePenalty));
+          newState.week = prev.week + 1;
+          newState.overtimeThisWeek = workMode !== "normal";
+          
+          if (prev.hireBurdenWeeksLeft > 0) {
+            newState.hireBurdenWeeksLeft = prev.hireBurdenWeeksLeft - 1;
+            newState.progress = Math.max(0, newState.progress - prev.hireBurdenRate);
+          }
+          
+          newState.teamSlots = prev.teamSlots.map(member => ({
+            ...member,
+            weeksJoined: (member.weeksJoined || 0) + 1,
+          }));
+          
+          if (!newState.traitEventsTriggered) {
+            newState.traitEventsTriggered = [];
+          }
+          
+          setLastWorkEffect(workEffect);
+          return newState;
+        });
+      }
+    }, [weekPhase, event, state.gamePhase, workMode, overtimeType, pieCount, weekProcessed]);
+
+    useEffect(() => {
+      if (weekPhase === "planning") {
+        setWeekProcessed(false);
+      }
+    }, [weekPhase]);
 
    const LEGACY_NAME_POOL = {
      engineer: ["小陈", "老李", "阿峰", "大勇", "小周"],
@@ -2764,7 +3339,11 @@ export default function App() {
      setSelectedNgYear(null);
      const years = [2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026];
      const marketYear = years[Math.floor(Math.random() * years.length)];
-      setState({ week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust: Math.floor(Math.random() * 6) + 3, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, projectHeadcount: 0, directionChosen: false, directionDelayPenalty: false, marketYear, companySize: "mid", kpiState: "normal", ipType: "none", ipActive: false, ipProtectUsed: 0, ipProtectCount: 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, fakeProgress: 0, honestyHintShown: false, honestyMidHintShown: false, peopleHintShown: false, qualityHintShown: false, usedActions: [], lastManageUpResult: null });
+     const bossTrait = randomFrom(PERSONALITIES.boss.traits);
+     const bossName = randomFrom(PERSONALITIES.boss.names);
+     const bossColorIndex = PERSONALITIES.boss.traits.indexOf(bossTrait);
+      const bossAvatarColor = PERSONALITIES.boss.avatarColors[bossColorIndex];
+       setState({ week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust: Math.floor(Math.random() * 6) + 3, bossPersonality: { name: bossName, trait: bossTrait, avatarColor: bossAvatarColor }, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, projectHeadcount: 0, directionChosen: false, directionDelayPenalty: false, marketYear, companySize: "mid", kpiState: "normal", ipType: "none", ipActive: false, ipProtectUsed: 0, ipProtectCount: 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, fakeProgress: 0, honestyHintShown: false, honestyMidHintShown: false, peopleHintShown: false, qualityHintShown: false, usedActions: [], lastManageUpResult: null, characters: [], directionClarity: 50, lowTrustStreak: 0, traitEventsTriggered: [], paratrooperPhase: null, paratrooperAccepted: null, paratrooperStance: null, paratrooperResolution: null, paratrooperTriggerWeek: null });
      setWorkMode("normal");
      setOvertimeType("pay");
      setPieCount(0);
@@ -2798,23 +3377,306 @@ export default function App() {
       setPickedCards([]);
       setSelectedNgYear(null);
       setAppPhase("ng_plus");
-    }, [state]);
+     }, [state]);
 
-   const handleEndingPreview = (num) => {
-     if (!DEBUG) return;
-     const endings = ["legendary", "excellent", "profitable", "average", "bad_release", "counter_win", "lose"];
-     const idx = num - 1;
-     if (idx >= 0 && idx < endings.length && state.gamePhase === "playing") {
-       setState(s => ({
-         ...s,
-         gamePhase: endings[idx],
-         loseReason: idx === 6 ? "【调试模式】快速预览结局" : s.loseReason,
-         gameDirection: idx % 2 === 0 ? "open_world" : null,
-         projectHeadcount: idx % 2 === 0 ? DIRECTION_TEAM_SCALE.OPENWORLD.projectTeamSize : 0,
-         survived: 18 + idx,
-       }));
-     }
-   };
+// ================================================================
+// EVENT HANDLERS - 事件处理逻辑主入口
+// ================================================================
+// Patch 30: manpower 逻辑在这里
+// Patch 33: companySize 逻辑在这里
+// Patch 34: personality 逻辑在这里
+// 【下3个patch的事件修改都加在这下面】
+   const handleChoice = useCallback((choice, optionIndex) => {
+     if (state.gamePhase !== "playing") return;
+
+     const effects = choice.effects || {};
+     let resultText = choice.result || "";
+     const outcome = choice.outcome;
+
+     setState(prev => {
+       let progressDelta = effects.progress || 0;
+       let moraleDelta = effects.morale || 0;
+       let budgetDelta = effects.budget || 0;
+       let bossTrustDelta = effects.bossTrust || 0;
+       let qualityDebtDelta = effects.qualityDebt || 0;
+
+        // Patch 34: Apply trait-based effects when choice affects personnel
+        // Patch 36: Enhanced team trait-based effect calculations
+        const affectsPersonnel = event?.id === "firefighter" || event?.id === "quitter" || event?.id === "blamer" || 
+                                event?.id === "cowboy" || event?.id === "legacy" || event?.id === "visionary" ||
+                                event?.id === "meeting" || event?.id === "perfectionist";
+        
+        const isCoreEvent = event?.id === "manpower" || event?.id === "dreamer" || event?.id === "quitter";
+        
+        if (affectsPersonnel || isCoreEvent) {
+          const traitStats = getTeamTraitStats(prev.teamSlots);
+          
+          if (traitStats.slacker >= 2) {
+            progressDelta = Math.round(progressDelta * 0.7);
+            resultText = resultText + "\n\n（团队里摸鱼的人太多，事情推进速度不如预期。）";
+          }
+          
+          if (traitStats.rigorous === traitStats.total && traitStats.total > 0) {
+            progressDelta = Math.round(progressDelta * 1.3);
+            qualityDebtDelta = Math.round(qualityDebtDelta * 0.6);
+            resultText = resultText + "\n\n（全严谨团队，技术方案成功率大幅提升。）";
+          }
+          
+          prev.teamSlots.forEach(member => {
+            if (member.trait === "激进" && member.role === "engineer") {
+              progressDelta = Math.round(progressDelta * 1.1);
+              moraleDelta = Math.round(moraleDelta * 0.5);
+            }
+            if (member.trait === "摸鱼" && member.role === "designer") {
+              progressDelta = Math.round(progressDelta * 0.8);
+              moraleDelta = Math.round(moraleDelta * 1.2);
+            }
+          });
+        }
+
+       // Patch 34: Boss personality affects trust changes
+       if (bossTrustDelta !== 0 && prev.bossPersonality) {
+         const decayRate = PERSONALITIES.boss.idiosyncrasies[prev.bossPersonality.trait]?.trustDecayRate || 1.0;
+         if (bossTrustDelta < 0) {
+           bossTrustDelta = Math.round(bossTrustDelta * decayRate);
+           moraleDelta = Math.round(moraleDelta * (prev.bossPersonality.trait === "严厉" ? 1.3 : 1.0));
+         }
+       }
+
+       let newState = {
+         ...prev,
+         progress: Math.max(0, Math.min(100, prev.progress + progressDelta)),
+         morale: Math.max(0, Math.min(100, prev.morale + moraleDelta)),
+         budget: Math.max(0, prev.budget + budgetDelta),
+         bossTrust: Math.min(10, prev.bossTrust + bossTrustDelta),
+         qualityDebt: Math.max(0, prev.qualityDebt + qualityDebtDelta),
+       };
+
+       if (choice.hidden) {
+         Object.keys(choice.hidden).forEach(key => {
+           if (newState[key] !== undefined) {
+             newState[key] = Math.max(0, newState[key] + choice.hidden[key]);
+           }
+         });
+       }
+
+       // Patch B: boss_talk trust recovery for outcomes A and B
+       if (event?.id === "boss_talk" && (outcome === "A" || outcome === "B")) {
+         const trustRecovery = Math.min(3, Math.floor(prev.progress / 25));
+         newState.bossTrust = Math.min(10, newState.bossTrust + trustRecovery);
+         if (trustRecovery > 0) {
+           resultText = resultText + "\n\n「你活下来了。老板重新打量了你一眼。进度说话，其他什么都没有。」";
+         }
+       }
+
+        // Patch 30 + Patch 33: projectHeadcount dynamic changes with companySize multiplier
+        // Set headcount when direction is chosen, with companySize multiplier
+        // Patch 34 + Patch 35: generate characters when direction is chosen
+        if (choice.direction && DIRECTION_TEAM_SCALE[choice.direction]) {
+          newState.gameDirection = choice.direction;
+          newState.projectHeadcount = getProjectTeamSize(choice.direction, prev.companySize);
+          newState.projectHeadcount = Math.min(newState.projectHeadcount, MAX_HEADCOUNT[prev.companySize]);
+          newState.directionClarity = getInitialDirectionClarity(choice.direction, prev.companySize);
+          newState.characters = generateCharactersForGame(choice.direction, prev.companySize, prev.marketYear);
+        }
+
+        // Headcount decrease - lucid_p2 choice A (outcome = "external")
+        if (event?.id === "lucid_p2" && outcome === "external") {
+          newState.projectHeadcount = Math.max(1, newState.projectHeadcount - 1);
+        }
+
+        // Headcount decrease - stock_trap option 1 (放他走)
+        if (event?.id === "stock_trap" && optionIndex === 1) {
+          newState.projectHeadcount = Math.max(1, newState.projectHeadcount - 1);
+        }
+
+        // Headcount increase - manpower/brooks_law events
+        // Patch 33: company size effect on manpower events
+        if (event?.id === "manpower" || event?.id === "brooks_law") {
+          const sizeBonus = prev.companySize === "big" ? 2 : 0;
+          if (choice.action === "large") {
+            newState.projectHeadcount = newState.projectHeadcount + 3 + sizeBonus;
+          } else if (choice.action === "small") {
+            newState.projectHeadcount = newState.projectHeadcount + 2 + sizeBonus;
+          }
+          newState.projectHeadcount = Math.min(newState.projectHeadcount, MAX_HEADCOUNT[prev.companySize] + sizeBonus);
+        }
+
+      // Patch 28: manpower/brooks_law → schedule hire_reveal + hireBurden
+      if (event?.id === "manpower" && (choice.action === "large" || choice.action === "small")) {
+        const isLarge = choice.action === "large";
+        const count = isLarge ? 3 : 2;
+        const newScheduled = [];
+        for (let i = 1; i <= count; i++) {
+          newScheduled.push({ id: "hire_reveal", triggerWeek: prev.week + i });
+        }
+        newState.scheduledEvents = [...(prev.scheduledEvents || []), ...newScheduled];
+        newState.hireScale = choice.action;
+        newState.hireBurdenWeeksLeft = isLarge ? 4 : 2;
+        newState.hireBurdenRate = isLarge ? 3 : 2;
+      }
+      if (event?.id === "brooks_law") {
+        const isLarge = optionIndex === 0;
+        const isSmall = optionIndex === 1;
+        if (isLarge || isSmall) {
+          const count = isLarge ? 3 : 2;
+          const newScheduled = [];
+          for (let i = 1; i <= count; i++) {
+            newScheduled.push({ id: "hire_reveal", triggerWeek: prev.week + i });
+          }
+          newState.scheduledEvents = [...(prev.scheduledEvents || []), ...newScheduled];
+          newState.hireScale = isLarge ? "large" : "small";
+          newState.hireBurdenWeeksLeft = isLarge ? 4 : 2;
+          newState.hireBurdenRate = isLarge ? 3 : 2;
+        }
+      }
+
+      // Patch 28: hire_reveal → add member to teamSlots
+      // Patch 36: add name and trait to team members
+      if (event?.id === "hire_reveal") {
+        if (prev.teamSlots.length >= MAX_HEADCOUNT[prev.companySize]) {
+          resultText = resultText + "\n\n团队已满员，新人直接分配到了项目组。";
+        } else {
+          const role = weightedRandomRole();
+          const seniority = randomSeniority();
+          const usedNames = prev.teamSlots.map(m => m.name);
+          const newMember = {
+            id: `hire_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            role,
+            seniority,
+            name: generateMemberName(role, usedNames),
+            trait: generateMemberTrait(role),
+            source: "hire_reveal",
+            contribution: computeContribution(role, seniority, prev.gameDirection),
+            weeksJoined: 0,
+          };
+          newState.teamSlots = [...prev.teamSlots, newMember];
+          const hireType = choice.outcome;
+          if (hireType === "god") {
+            newState.progressBonus = (newState.progressBonus || 0) + 1;
+          }
+          if (hireType === "code" || hireType === "morale") {
+            newState.problemEmployee = newMember.id;
+          }
+        }
+      }
+
+      if (PERSONALITY_EVENTS.some(e => e.id === event?.id)) {
+        if (!newState.traitEventsTriggered) {
+          newState.traitEventsTriggered = [];
+        }
+        if (!newState.traitEventsTriggered.includes(event.id)) {
+          newState.traitEventsTriggered = [...newState.traitEventsTriggered, event.id];
+        }
+      }
+
+      // Patch 38: Paratrooper event arc handling
+      if (event?.id === "paratrooper_phase1") {
+        newState.paratrooperPhase = 1;
+        newState.paratrooperAccepted = choice.accept;
+        newState.paratrooperTriggerWeek = prev.week;
+        if (choice.accept === "full" || choice.accept === "partial") {
+          newState.projectHeadcount = prev.projectHeadcount + 2;
+          newState.kpiState = "tight";
+        }
+      } else if (event?.id === "paratrooper_phase2") {
+        newState.paratrooperPhase = 2;
+        newState.paratrooperStance = choice.stance;
+      } else if (event?.id === "paratrooper_phase3") {
+        newState.paratrooperPhase = 3;
+        newState.paratrooperResolution = choice.resolution;
+      } else if (event?.id === "paratrooper_phase4") {
+        newState.paratrooperPhase = 4;
+        if (prev.paratrooperResolution === "expel") {
+          newState.progress = Math.max(0, prev.progress - 20);
+          newState.morale = Math.min(100, prev.morale + 5);
+          newState.bossTrust = Math.max(0, prev.bossTrust - 2);
+          newState.kpiState = "normal";
+          resultText = "你成功驱逐了空降经理。团队士气有所回升，但进度严重受挫，老板对你的信任也下降了。项目终于回到了你的完全掌控之下。";
+        } else if (prev.paratrooperResolution === "cooperate") {
+          newState.progress = Math.min(100, prev.progress + 10);
+          newState.morale = Math.min(100, prev.morale + 10);
+          newState.bossTrust = Math.min(10, prev.bossTrust + 2);
+          newState.kpiState = "loose";
+          resultText = "你们最终达成了合作共识。空降经理带来的资源和经验推动了项目进展，团队士气也恢复了。老板对这个结果很满意，给了你更大的自主权。";
+        } else {
+          newState.progress = Math.max(0, prev.progress - 5);
+          newState.morale = Math.max(0, prev.morale - 3);
+          resultText = "事情不了了之。空降经理还在，但不再直接干涉项目。状态回到了一种微妙的平衡。";
+        }
+      }
+
+      return newState;
+    });
+
+    setLastResult(resultText);
+    setLastEffects(effects);
+    setShowResult(true);
+  }, [state, event]);
+
+  const dismissMonthSummary = useCallback(() => {
+    setShowMonthSummary(false);
+    setMonthSummaryData(null);
+  }, []);
+
+  const checkParatrooperEvents = useCallback((state) => {
+    if (state.paratrooperPhase === null) {
+      if (state.week >= 1 && state.week <= 4) {
+        return PARATROOPER_PHASE1;
+      }
+      return null;
+    }
+    if (state.paratrooperPhase === 1 && state.paratrooperAccepted !== "reject") {
+      if (state.week >= 6 && state.week <= 8) {
+        return PARATROOPER_PHASE2;
+      }
+    }
+    if (state.paratrooperPhase === 2) {
+      if (state.week >= 12 && state.week <= 14) {
+        return PARATROOPER_PHASE3;
+      }
+    }
+    if (state.paratrooperPhase === 3) {
+      if (state.week >= 16) {
+        return PARATROOPER_PHASE4;
+      }
+    }
+    return null;
+  }, []);
+
+  const nextEvent = useCallback(() => {
+    const paratrooperEvent = checkParatrooperEvents(state);
+    if (paratrooperEvent) {
+      setEvent(paratrooperEvent);
+      setAnimKey(k => k + 1);
+      return;
+    }
+    const traitEvent = checkTraitEvents(state);
+    if (traitEvent) {
+      setEvent(traitEvent);
+      setAnimKey(k => k + 1);
+      return;
+    }
+    setEvent(null);
+    setShowResult(false);
+    setAnimKey(k => k + 1);
+}, [state, checkParatrooperEvents]);
+
+    const handleEndingPreview = (num) => {
+      if (!DEBUG) return;
+      const endings = ["legendary", "excellent", "profitable", "average", "bad_release", "counter_win", "lose"];
+      const idx = num - 1;
+      if (idx >= 0 && idx < endings.length && state.gamePhase === "playing") {
+        setState(s => ({
+          ...s,
+          gamePhase: endings[idx],
+          loseReason: idx === 6 ? "【调试模式】快速预览结局" : s.loseReason,
+          gameDirection: idx % 2 === 0 ? "open_world" : null,
+          projectHeadcount: idx % 2 === 0 ? DIRECTION_TEAM_SCALE.OPENWORLD.projectTeamSize : 0,
+          survived: 18 + idx,
+        }));
+      }
+    };
 
    const phase = [...PHASE_LABELS].reverse().find(p => state.progress >= p.min)?.label || "概念原型期";
    const weeksLeft = TOTAL_WEEKS - state.week;
@@ -2857,60 +3719,57 @@ export default function App() {
       return <IntroScreen onNext={() => setAppPhase("cards")} />;
     }
 
-    const handleCardPick = (step, card) => {
-      const activeGroups = getActiveCardGroups(pickedCards);
-      const groupIdx = CARD_GROUPS.indexOf(activeGroups[step]);
-      const newPicks = [...pickedCards];
-      newPicks[groupIdx] = card;
-      setPickedCards(newPicks);
-    };
+   const handleCardPick = (step, card) => {
+     const activeGroups = getActiveCardGroups(pickedCards);
+     const groupIdx = CARD_GROUPS.indexOf(activeGroups[step]);
+     const newPicks = [...pickedCards];
+     newPicks[groupIdx] = card;
+     setPickedCards(newPicks);
+   };
 
-    const handleCardNext = () => {
-      const activeGroups = getActiveCardGroups(pickedCards);
-      if (cardStep < activeGroups.length - 1) {
-        setCardStep(s => s + 1);
-      } else {
-        if (legacyData) {
-          const initState = buildInitialState(pickedCards, legacyData, selectedNgYear);
-          setState(initState);
-          setWorkMode("normal");
-          setOvertimeType("pay");
-          setPieCount(0);
-          setApSpent(0);
-          setFreezeDone(false);
-          setWeekPhase("planning");
-          setShowMonthSummary(false);
-          setMonthSummaryData(null);
-          setMonthStartProgress(0);
-          setShowResult(false);
-          setEvent(null);
-          setLastResult("");
-          setLastConfidantReveal("");
-          setLastBossReaction("");
-          setLastEffects(null);
-          setLastWorkEffect(null);
-          setRecruitResultMessage("");
-          setRecruitCandidate(null);
-          setLayoffPanelOpen(false);
-          setLayoffConfirmMember(null);
-          setLayoffPendingMember(null);
-          setAnimKey(k => k + 1);
-          setAppPhase("game");
-        } else {
-          setAppPhase("onboarding");
-        }
-      }
-    };
+   const handleCardNext = () => {
+     const activeGroups = getActiveCardGroups(pickedCards);
+     if (cardStep < activeGroups.length - 1) {
+       setCardStep(s => s + 1);
+     } else {
+       if (legacyData) {
+         const initState = buildInitialState(pickedCards, legacyData, selectedNgYear);
+         setState(initState);
+         setWorkMode("normal");
+         setOvertimeType("pay");
+         setPieCount(0);
+         setApSpent(0);
+         setFreezeDone(false);
+         setWeekPhase("planning");
+         setShowMonthSummary(false);
+         setMonthSummaryData(null);
+         setMonthStartProgress(0);
+         setShowResult(false);
+         setEvent(null);
+         setLastResult("");
+         setLastConfidantReveal("");
+         setLastBossReaction("");
+         setLastEffects(null);
+         setLastWorkEffect(null);
+         setRecruitResultMessage("");
+         setRecruitCandidate(null);
+         setAnimKey(k => k + 1);
+         setAppPhase("game");
+       } else {
+         setAppPhase("onboarding");
+       }
+     }
+   };
 
     if (appPhase === "cards") {
       return <CardScreen step={cardStep} pickedCards={pickedCards} onPick={handleCardPick} onNext={handleCardNext} />;
     }
 
-    const handleOnboardingDone = () => {
-      const initState = buildInitialState(pickedCards);
-      setPrologueState(initState);
-      setAppPhase("prologue");
-    };
+   const handleOnboardingDone = () => {
+     const initState = buildInitialState(pickedCards);
+     setPrologueState(initState);
+     setAppPhase("prologue");
+   };
 
     if (appPhase === "onboarding") {
       return <OnboardingScreen pickedCards={pickedCards} onDone={handleOnboardingDone} />;
@@ -2994,7 +3853,7 @@ export default function App() {
          <div style={{ fontSize: 22, fontWeight: 700, color: "#f87171", margin: "12px 0 6px" }}>叫好不叫座</div>
          <div style={{ color: "#c7c7c7", fontSize: 14, marginBottom: 6 }}>{timeLabel} 交付</div>
          <div style={{ color: "#888", fontSize: 15, lineHeight: 1.7, maxWidth: 260, textAlign: "center", marginBottom: 24 }}>
-           所有人都说这个方向没有未来。<br /><br />你做了，上线了。<br />活跃数据证明你没有错，<br />但付费数据证明他们是对的。<br /><br />你关掉数据分析后台，去喝了一杯酒。
+           所有人说这个方向没有未来。<br /><br />你做了，上线了。<br />活跃数据证明你没有错，<br />但付费数据证明他们是对的。<br /><br />你关掉数据分析后台，去喝了一杯酒。
          </div>
          <ShareCard state={state} />
          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}><button onClick={handleStartNgPlus} style={s.endBtn}>带着遗憾继续 →</button><button onClick={restart} style={{ ...s.endBtn, opacity: 0.7, borderColor: '#3a3a5a' }}>重新开始</button></div>
@@ -3031,147 +3890,7 @@ export default function App() {
     </div>
   );
 
-  const handleChoice = useCallback((choice, optionIndex) => {
-    if (state.gamePhase !== "playing") return;
-
-    const effects = choice.effects || {};
-    let resultText = choice.result || "";
-    const outcome = choice.outcome;
-
-    setState(prev => {
-      let newState = {
-        ...prev,
-        progress: Math.max(0, Math.min(100, prev.progress + (effects.progress || 0))),
-        morale: Math.max(0, Math.min(100, prev.morale + (effects.morale || 0))),
-        budget: Math.max(0, prev.budget + (effects.budget || 0)),
-        bossTrust: Math.min(10, prev.bossTrust + (effects.bossTrust || 0)),
-        qualityDebt: Math.max(0, prev.qualityDebt + (effects.qualityDebt || 0)),
-      };
-
-      if (choice.hidden) {
-        Object.keys(choice.hidden).forEach(key => {
-          if (newState[key] !== undefined) {
-            newState[key] = Math.max(0, newState[key] + choice.hidden[key]);
-          }
-        });
-      }
-
-      // Patch B: boss_talk trust recovery for outcomes A and B
-      if (event?.id === "boss_talk" && (outcome === "A" || outcome === "B")) {
-        const trustRecovery = Math.min(3, Math.floor(prev.progress / 25));
-        newState.bossTrust = Math.min(10, newState.bossTrust + trustRecovery);
-        if (trustRecovery > 0) {
-          resultText = resultText + "\n\n「你活下来了。老板重新打量了你一眼。进度说话，其他什么都没有。」";
-        }
-      }
-
-      // Patch 30: projectHeadcount dynamic changes
-      // Set headcount when direction is chosen
-      if (choice.direction && DIRECTION_TEAM_SCALE[choice.direction]) {
-        newState.gameDirection = choice.direction;
-        newState.projectHeadcount = DIRECTION_TEAM_SCALE[choice.direction].projectTeamSize;
-      }
-
-      // Headcount decrease - lucid_p2 choice A (outcome = "external")
-      if (event?.id === "lucid_p2" && outcome === "external") {
-        newState.projectHeadcount = Math.max(1, newState.projectHeadcount - 1);
-      }
-
-      // Headcount decrease - stock_trap option 1 (放他走)
-      if (event?.id === "stock_trap" && optionIndex === 1) {
-        newState.projectHeadcount = Math.max(1, newState.projectHeadcount - 1);
-      }
-
-      // Headcount increase - manpower/brooks_law events
-      if (event?.id === "manpower" || event?.id === "brooks_law") {
-        if (choice.action === "large") {
-          newState.projectHeadcount = newState.projectHeadcount + 3;
-        } else if (choice.action === "small") {
-          newState.projectHeadcount = newState.projectHeadcount + 2;
-        } else if (event?.id === "brooks_law" && optionIndex === 0) {
-          // brooks_law option 0 is "大量招人"
-          newState.projectHeadcount = newState.projectHeadcount + 3;
-        } else if (event?.id === "brooks_law" && optionIndex === 1) {
-          // brooks_law option 1 is "只招一个关键岗位"
-          newState.projectHeadcount = newState.projectHeadcount + 1;
-        }
-      }
-
-      // Patch 28: manpower/brooks_law → schedule hire_reveal + hireBurden
-      if (event?.id === "manpower" && (choice.action === "large" || choice.action === "small")) {
-        const isLarge = choice.action === "large";
-        const count = isLarge ? 3 : 2;
-        const newScheduled = [];
-        for (let i = 1; i <= count; i++) {
-          newScheduled.push({ id: "hire_reveal", triggerWeek: prev.week + i });
-        }
-        newState.scheduledEvents = [...(prev.scheduledEvents || []), ...newScheduled];
-        newState.hireScale = choice.action;
-        newState.hireBurdenWeeksLeft = isLarge ? 4 : 2;
-        newState.hireBurdenRate = isLarge ? 3 : 2;
-      }
-      if (event?.id === "brooks_law") {
-        const isLarge = optionIndex === 0;
-        const isSmall = optionIndex === 1;
-        if (isLarge || isSmall) {
-          const count = isLarge ? 3 : 2;
-          const newScheduled = [];
-          for (let i = 1; i <= count; i++) {
-            newScheduled.push({ id: "hire_reveal", triggerWeek: prev.week + i });
-          }
-          newState.scheduledEvents = [...(prev.scheduledEvents || []), ...newScheduled];
-          newState.hireScale = isLarge ? "large" : "small";
-          newState.hireBurdenWeeksLeft = isLarge ? 4 : 2;
-          newState.hireBurdenRate = isLarge ? 3 : 2;
-        }
-      }
-
-      // Patch 28: hire_reveal → add member to teamSlots
-      if (event?.id === "hire_reveal") {
-        if (prev.teamSlots.length >= 6) {
-          resultText = resultText + "\n\n团队已满员，新人直接分配到了项目组。";
-        } else {
-          const role = weightedRandomRole();
-          const seniority = randomSeniority();
-          const newMember = {
-            id: `hire_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-            role,
-            seniority,
-            source: "hire_reveal",
-            contribution: computeContribution(role, seniority, prev.gameDirection),
-            weeksJoined: 0,
-          };
-          newState.teamSlots = [...prev.teamSlots, newMember];
-          const hireType = choice.outcome;
-          if (hireType === "god") {
-            newState.progressBonus = (newState.progressBonus || 0) + 1;
-          }
-          if (hireType === "code" || hireType === "morale") {
-            newState.problemEmployee = newMember.id;
-          }
-        }
-      }
-
-      return newState;
-    });
-
-    setLastResult(resultText);
-    setLastEffects(effects);
-    setShowResult(true);
-  }, [state, event]);
-
-  const dismissMonthSummary = useCallback(() => {
-    setShowMonthSummary(false);
-    setMonthSummaryData(null);
-  }, []);
-
-  const nextEvent = useCallback(() => {
-    setEvent(null);
-    setShowResult(false);
-    setAnimKey(k => k + 1);
-  }, []);
-
-  const apTotal = WORK_MODES[workMode].ap + (state.apBonusPerWeek || 0);
+   const apTotal = WORK_MODES[workMode].ap + (state.apBonusPerWeek || 0);
   const apLeft = Math.max(0, apTotal - apSpent);
 
    const header = (
@@ -3220,14 +3939,22 @@ export default function App() {
             ⚡ 线人：他（剩余{state.lucidConfidant.usesLeft}次）
           </div>
         )}
-        {state.lucidConfidant?.subtype === "inner" && (
-          <div style={{ fontSize: 12, fontFamily: "monospace", marginTop: 2, color: "#e2e8f0" }}>
-            🔬 心腹：他（内部）
-          </div>
-        )}
-      </div>
-    </div>
-  );
+         {state.lucidConfidant?.subtype === "inner" && (
+           <div style={{ fontSize: 12, fontFamily: "monospace", marginTop: 2, color: "#e2e8f0" }}>
+             🔬 心腹：他（内部）
+           </div>
+         )}
+         {state.paratrooperPhase !== null && state.paratrooperPhase < 4 && (
+           <div style={{ fontSize: 12, fontFamily: "monospace", marginTop: 2, color: "#f97316" }}>
+             🪂 空降经理：阶段{state.paratrooperPhase}/4
+             {state.paratrooperPhase === 1 && `（${state.paratrooperAccepted === "full" ? "完全接受" : state.paratrooperAccepted === "partial" ? "部分接受" : "已拒绝"}）`}
+             {state.paratrooperPhase === 2 && `（${state.paratrooperStance === "obey" ? "完全服从" : state.paratrooperStance === "compromise" ? "妥协" : "坚持对抗"}）`}
+             {state.paratrooperPhase === 3 && `（${state.paratrooperResolution === "cooperate" ? "选择合作" : state.paratrooperResolution === "escalate" ? "上报老板" : "决心驱逐"}）`}
+           </div>
+         )}
+       </div>
+     </div>
+   );
 
    const healthTier = getProductHealthTier(getProductHealthScore(state.qualityDebt, state.gameDirection, state.marketYear));
    const statsRow = (
@@ -3241,9 +3968,9 @@ export default function App() {
             <StatBar label="💰 预算" value={state.budget} color="#60a5fa" onClick={() => setActiveTip(activeTip === "budget" ? null : "budget")} />
             {hasBackgroundBonus(state, "budgetPrecisionDisplay") && (
               <div style={{ fontSize: 11, color: "#9ca3af", fontFamily: "monospace", marginTop: 2, textAlign: "right" }}>
-                周消耗: -{Math.round(getWeeklyBudgetDrain(Math.ceil(state.week / 4)) * getKpiBudgetMultiplier(state.kpiState) * (DIRECTION_TEAM_SCALE[state.gameDirection]?.budgetDrainMultiplier || 1))}
+                周消耗: -{Math.round(getWeeklyBudgetDrain(Math.ceil(state.week / 4)) * getKpiBudgetMultiplier(state.kpiState) * (DIRECTION_TEAM_SCALE[state.gameDirection]?.budgetDrainMultiplier || 1) * (STUDIO_BUDGET_MULTIPLIER[state.companySize] || 1))}
                 <br />
-                预计剩余: {Math.max(0, Math.floor(state.budget / Math.max(1, getWeeklyBudgetDrain(Math.ceil(state.week / 4)) * getKpiBudgetMultiplier(state.kpiState) * (DIRECTION_TEAM_SCALE[state.gameDirection]?.budgetDrainMultiplier || 1))))}周
+                预计剩余: {Math.max(0, Math.floor(state.budget / Math.max(1, getWeeklyBudgetDrain(Math.ceil(state.week / 4)) * getKpiBudgetMultiplier(state.kpiState) * (DIRECTION_TEAM_SCALE[state.gameDirection]?.budgetDrainMultiplier || 1) * (STUDIO_BUDGET_MULTIPLIER[state.companySize] || 1))))}周
               </div>
             )}
           </div>
@@ -3312,21 +4039,25 @@ export default function App() {
       )}
       {activeTip === "trust" && (
         <div style={{ background: "#0c0c18", border: "1px solid #1a1a2e", borderRadius: 8, padding: "10px 14px", margin: "-8px 18px 8px", fontSize: 13, color: "#c7c7c7", fontFamily: "monospace", lineHeight: 1.8 }}>
-          ⭐ 老板信任度（0-10）<br />
+          <span style={{ color: state.bossPersonality?.avatarColor }}>{BOSS_EMOJI} {state.bossPersonality?.name || "老板"}</span><br />
+          性格：<span style={{ color: state.bossPersonality?.avatarColor }}>{state.bossPersonality?.trait || "未知"}</span><br />
+          {state.bossPersonality?.trait === "严厉" && <>👉 信任下降时士气伤害 ×1.3 · 向上管理成功率 60%</>}
+          {state.bossPersonality?.trait === "温和" && <>👉 信任下降较慢 · 向上管理成功率 80%</>}
+          {state.bossPersonality?.trait === "多疑" && <>👉 信任下降较快 · 向上管理成功率 40%</>}
+          <hr style={{ border: "none", borderTop: "1px solid #1a1a2e", margin: "6px 0" }} />
+          ⭐ 信任度（0-10）<br />
           0：触发「谈话」事件，可能直接失败。<br />
           ≤ 2：每月底预算自动 -5，他在打听你的项目<br />
           ≤ 4：管理层干预事件频率 ×2<br />
-          ≥ 8：管理层干预频率降低<br />
-          向上管理行动 +1（2AP）· 顺利通过里程碑 +1<br />
-          初始值随机（3-8）
+          ≥ 8：管理层干预频率降低
          </div>
        )}
-<div onClick={() => setTeamPanelExpanded(!teamPanelExpanded)} style={{ padding: "10px 18px", background: "#08080f", borderBottom: "1px solid #0e0e1e", cursor: "pointer" }}>
+        <div onClick={() => setTeamPanelExpanded(!teamPanelExpanded)} style={{ padding: "10px 18px", background: "#08080f", borderBottom: "1px solid #0e0e1e", cursor: "pointer" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontFamily: "monospace", color: "#c7c7c7" }}>
             <span>🤝</span>
-            <span>核心团队 {state.teamSlots.length}/6</span>
+            <span>核心团队 {state.teamSlots.length}/{MAX_HEADCOUNT[state.companySize]}</span>
             {state.gameDirection && DIRECTION_TEAM_SCALE[state.gameDirection] ? (
-              <span style={{ color: "#666" }}>· 项目 {state.projectHeadcount}人</span>
+              <span style={{ color: "#666" }}>· 项目 {state.projectHeadcount}人 · {SCALE_TIER_LABELS[getScaleTier(state.projectHeadcount)] || ""}</span>
             ) : null}
             <span style={{ flex: 1 }} />
             <span>{teamPanelExpanded ? "▲" : "▼"}</span>
@@ -3334,21 +4065,41 @@ export default function App() {
         </div>
        {teamPanelExpanded && state.teamSlots.length > 0 && (
          <div style={{ background: "#0c0c18", padding: "8px 18px", borderBottom: "1px solid #0e0e1e" }}>
-           {state.teamSlots.map(member => {
-             const arrow = member.contribution.progressEfficiency >= 1.0 ? "↑↑" : member.contribution.progressEfficiency >= 0.7 ? "↑" : "↓";
-             return (
-               <div key={member.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0", fontSize: 13, fontFamily: "monospace", color: "#888" }}>
-                 <span style={{ fontSize: 16 }}>{ROLE_EMOJI[member.role]}</span>
-                 <span style={{ width: 50 }}>{ROLE_NAMES[member.role]}</span>
-                 <span style={{ width: 45, color: "#666" }}>{SENIORITY_NAMES[member.seniority]}</span>
-                 <span style={{ 
-                   color: arrow === "↑↑" ? "#4ade80" : arrow === "↑" ? "#60a5fa" : "#f97316",
-                   fontSize: 14,
-                   fontWeight: "bold"
-                 }}>{arrow}</span>
-               </div>
-             );
-           })}
+{state.teamSlots.map(member => {
+              const arrow = member.contribution.progressEfficiency >= 1.0 ? "↑↑" : member.contribution.progressEfficiency >= 0.7 ? "↑" : "↓";
+              const phaseInfo = getMemberPhaseInfo(member, state.week);
+              return (
+                <div key={member.id} style={{ display: "flex", flexDirection: "column", gap: 4, padding: "6px 0", borderBottom: "1px solid #1a1a2e" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, fontFamily: "monospace", color: "#888" }}>
+                    <span style={{ fontSize: 16 }}>{ROLE_EMOJI[member.role]}</span>
+                    <span style={{ width: 42, fontWeight: 500, color: "#ccc" }}>{member.name || ROLE_NAMES[member.role]}</span>
+                    <span style={{ width: 42, color: "#666", fontSize: 12 }}>{SENIORITY_NAMES[member.seniority]}</span>
+                    <span style={{ 
+                      color: arrow === "↑↑" ? "#4ade80" : arrow === "↑" ? "#60a5fa" : "#f97316",
+                      fontSize: 12,
+                      fontWeight: "bold"
+                    }}>{arrow}</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 2, paddingLeft: 26, fontSize: 11, color: "#666" }}>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <span style={{ color: "#8b5cf6" }}>{member.trait || ""}</span>
+                      <span style={{ color: "#555" }}>·</span>
+                      <span style={{ color: "#0ea5e9" }}>{member.background || ""}</span>
+                    </div>
+                    {phaseInfo && (
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <span style={{ color: "#22c55e" }}>第 {member.weeksJoined || 0} 周</span>
+                        <span style={{ color: "#444" }}>|</span>
+                        <span style={{ color: "#fbbf24" }}>{phaseInfo.current?.phaseName || "初始阶段"}</span>
+                        {phaseInfo.next && (
+                          <span style={{ color: "#666" }}>→ {phaseInfo.next.phaseName}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
          </div>
        )}
        {teamPanelExpanded && state.teamSlots.length === 0 && (
@@ -3379,7 +4130,7 @@ export default function App() {
         {weekPhase === "planning" ? (
            <>
              <div style={{ paddingTop: 16 }}>
-               <WorkModeSelector workMode={workMode} setWorkMode={setWorkMode} overtimeType={overtimeType} setOvertimeType={setOvertimeType} pieCount={pieCount} progress={state.progress} apSpent={apSpent} apBonus={state.apBonusPerWeek||0} />
+               <WorkModeSelector workMode={workMode} setWorkMode={setWorkMode} overtimeType={overtimeType} setOvertimeType={setOvertimeType} pieCount={pieCount} progress={state.progress} apSpent={apSpent} apBonus={state.apBonusPerWeek||0} companySize={state.companySize} />
                 <ActionMenu state={state} workMode={workMode} apSpent={apSpent} freezeDone={freezeDone} onAction={takeAction} />
                
                {recruitCandidate && (
@@ -3421,8 +4172,8 @@ export default function App() {
                      return (
                        <div key={member.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #1a1a2e" }}>
                          <span style={{ fontSize: 18 }}>{ROLE_EMOJI[member.role]}</span>
-                         <span style={{ flex: 1, fontSize: 14, color: "#ccc" }}>{ROLE_NAMES[member.role]}</span>
-                         <span style={{ fontSize: 13, color: "#666" }}>{SENIORITY_NAMES[member.seniority]}</span>
+                         <span style={{ flex: 1, fontSize: 14, color: "#ccc" }}>{member.name || ROLE_NAMES[member.role]}</span>
+                         <span style={{ fontSize: 12, color: "#666" }}>{SENIORITY_NAMES[member.seniority]}</span>
                          <span style={{ 
                            color: arrow === "↑↑" ? "#4ade80" : arrow === "↑" ? "#60a5fa" : "#f97316",
                            fontSize: 14,
@@ -3530,10 +4281,31 @@ export default function App() {
                        const isParatrooper = event?.id === "paratrooper";
                        const isHireReveal = event?.id === "hire_reveal";
                        
-                       let choices;
-                       let getOptionLabel;
-                       let displayDialogue = event.dialogue;
-                       let hireResult = null;
+                        let choices;
+                        let getOptionLabel;
+                        let displayDialogue = event.dialogue;
+                        let hireResult = null;
+                        
+                        const isManpowerEvent = event?.id === "manpower";
+                        const isDreamer = event?.id === "dreamer";
+                        const isQuitter = event?.id === "quitter";
+                        
+                        if (state.teamSlots.length > 0) {
+                          const memberForEvent = state.teamSlots[0];
+                          if (isManpowerEvent) {
+                            const engineerMember = getMemberByTrait(state.teamSlots, ["严谨"], "engineer") || memberForEvent;
+                            displayDialogue = `${engineerMember.name}（${engineerMember.trait}的${ROLE_NAMES[engineerMember.role]}）找到你，眉头紧锁：\n\n` +
+                              `「老板刚才把我叫进办公室，说开发速度一定要快。不行就加人。HR那边准备了一批简历。\n他还塞过来几个推荐候选人的名单，让我优先考虑。」\n\n你接过名单，感觉事情没那么简单。`;
+                          } else if (isDreamer) {
+                            const designerMember = getMemberByTrait(state.teamSlots, ["脑洞大"], "designer") || memberForEvent;
+                            displayDialogue = `${designerMember.name}（${designerMember.trait}的${ROLE_NAMES[designerMember.role]}）找到你，眼睛发亮：\n\n` +
+                              `「制作人！我昨晚想到了一个超酷的功能——城市建造系统+NPC情绪引擎+实时动态天气！直接对标最近很火的那个猛男捡树枝！我问了朋友，实现起来应该不难的！」`;
+                          } else if (isQuitter) {
+                            const engineerMember = getMemberByTrait(state.teamSlots, ["激进"], "engineer") || memberForEvent;
+                            displayDialogue = `${engineerMember.name}（${engineerMember.trait}的${ROLE_NAMES[engineerMember.role]}）发来私信：\n\n` +
+                              `「制作人……我想辞职。我跟女朋友分手了，在这个城市实在待不下去了。战斗系统我会交接好的。」`;
+                          }
+                        }
                        
                        if (isLucidP2) {
                          const phase1 = state.lucidPhase1;
@@ -3766,3 +4538,126 @@ const s = {
   endWrap: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px 20px", minHeight: "100vh" },
   endBtn: { background: "#0c0c18", border: "1px solid #2a2a3a", color: "#ccc", borderRadius: 8, padding: "13px 14px", fontSize: 15, cursor: "pointer" },
 };
+
+// ================================================================
+// PATCH CONSTANTS - 按编号排序
+// ================================================================
+// 所有新增的 patch 常量都加在这下面，方便查找定位
+
+// ================================================================
+// PATCH 28-29: 团队规模系统
+// ================================================================
+// 代码位置: ~ line 230
+// - weightedRandomRole, randomSeniority, computeContribution
+
+// ================================================================
+// PATCH 33: 厂商规模系统
+// ================================================================
+// 代码位置: ~ line 228
+// - STUDIO_SCALE_MULTIPLIER, STUDIO_BUDGET_MULTIPLIER
+// - getProjectTeamSize, getScaleTier, SCALE_TIER_LABELS
+// - DIRECTION_TEAM_SCALE
+
+// ================================================================
+// PATCH 34: NPC 人格系统
+// ================================================================
+// 代码位置: ~ line 228
+// - PERSONALITIES
+
+// ================================================================
+// PATCH 36: 现有事件迁移到角色系统
+// ================================================================
+// 代码位置: 
+// - generateMemberName, generateMemberTrait, getMemberByTrait, getTeamTraitStats (line ~484)
+// - 事件对话个性化: manpower/dreamer/quitter (line ~4160)
+// - 团队特质影响事件效果计算 (line ~3590)
+// - 团队UI显示成员姓名和性格 (line ~3945)
+
+// ================================================================
+// PATCH 37: 常驻人格事件弧线框架
+// ================================================================
+// 代码位置: ~ line 705 (PERSONALITY_TRAITS), ~ line 759 (PERSONALITY_EVENTS)
+// - PERSONALITY_TRAITS: 8种人格类型的详细定义（工具人/架构师/摸鱼王/细节控/脑洞大师/工具人设计/严谨QA/佛系QA）
+// - PERSONALITY_PHASES: 每种人格3个成长阶段的效率、品质、士气加成
+// - PERSONALITY_EVENTS: 7个专属人格事件，在特定入职周数触发
+// - mapChineseTraitToKey(): 中文性格标签到英文键的映射
+// - checkTraitEvents(): 检查是否有人格事件需要触发
+// - traitEventsTriggered: 状态字段，记录已触发的人格事件（避免重复）
+// - 周推进时自动更新成员 weeksJoined，用于阶段判定
+
+// ================================================================
+// PATCH 38: 伞兵完整弧线
+// ================================================================
+// 代码位置: ~ line 4520 (PARATROOPER_EVENTS), ~ line 3780 (handleChoice 处理逻辑), ~ line 3830 (nextEvent 阶段检测), ~ line 3883 (UI 显示)
+// - PARATROOPER_EVENTS: 4个阶段的伞兵事件定义（空降/理念冲突/矛盾激化/结局）
+// - paratrooperPhase: 状态字段，记录当前伞兵事件阶段（null=未触发, 1-4=阶段1-4）
+// - paratrooperAccepted: 状态字段，记录阶段1选择（接受/部分接受/拒绝）
+// - checkParatrooperEvents(): 检查伞兵阶段事件是否需要触发
+// - handleChoice 中的伞兵事件效果处理
+// - UI 右上角显示经理状态
+
+// Patch 38: 伞兵事件 - 4个阶段
+const PARATROOPER_PHASE1 = {
+  id: "paratrooper_phase1",
+  name: "经理空降",
+  emoji: "🪂",
+  color: "#4ade80",
+  tagline: "「我不会乱动的」（但一定会的）",
+  situation: "空降的这位执行制作人听说是老板花了大价钱挖来的，他在全员会议上笑着说：",
+  dialogue: "大家好！我是新来的执行制作人，会辅助制作人把这个内容做好。我觉得你们做得挺好的，会尽量不动大家的东西。对了，我只是有一些小小的方向性调整……",
+  choices: [
+    { text: "完全接受，全力配合", effects: { progress: -8, morale: -6, budget: 15, bossTrust: 3 }, hidden: { grit: -1 }, result: "他很高兴，老板也很满意。团队士气受到冲击，但预算追加了。项目正式进入「双制作人」状态。", accept: "full" },
+    { text: "部分接受，划定边界", effects: { progress: -4, morale: -3, budget: 8, bossTrust: 1 }, hidden: { grit: 1 }, result: "你和他达成了妥协，划定了各自的权责范围。他没有完全插手，但也没有完全离开。", accept: "partial" },
+    { text: "委婉拒绝，建议观望", effects: { progress: 2, morale: 5, budget: 0, bossTrust: -3 }, hidden: { grit: 2, judgment: 1 }, result: "你顶住了压力，建议先观察一段时间再做决定。老板很不高兴，但团队很感激你保护了他们的工作环境。", accept: "reject" },
+  ]
+};
+
+const PARATROOPER_PHASE2 = {
+  id: "paratrooper_phase2",
+  name: "理念冲突",
+  emoji: "⚡",
+  color: "#facc15",
+  tagline: "「这个方向，我觉得需要调整」",
+  situation: "新经理在周会上提出了他的想法：",
+  dialogue: "我看了一下最近的进度，有个想法——我们是不是可以把核心玩法改成更「轻量化」的版本？这样上线时间可以提前两个月，数据也会更好看。当然，最终还是你来定。",
+  choices: [
+    { text: "完全服从，按他说的改", effects: { progress: -3, morale: -4, budget: 0, bossTrust: 2 }, result: "方向改了。团队很失落，但老板很满意。你保住了位置，却失去了一些团队的信任。", stance: "obey" },
+    { text: "折中方案，各退一步", effects: { progress: -1, morale: -2, budget: 0, bossTrust: 0 }, result: "你们达成了一个不伦不类的折中方案。没有人满意，但也没有人受伤。", stance: "compromise" },
+    { text: "据理力争，坚持原方向", effects: { progress: 2, morale: 5, budget: 0, bossTrust: -2 }, result: "你顶住了压力，坚持了原来的方向。团队士气大振，但你和他的关系彻底破裂了。", stance: "resist" },
+  ]
+};
+
+const PARATROOPER_PHASE3 = {
+  id: "paratrooper_phase3",
+  name: "矛盾激化",
+  emoji: "🔥",
+  color: "#f97316",
+  tagline: "「要么他走，要么我走」",
+  situation: "项目例会上，冲突爆发了：",
+  dialogue: "他当着整个团队的面，否定了你上周拍板的所有设计决策。「这些东西都太理想化了，不切实际。听我的，按我说的改。」\n\n团队一片死寂，所有人都在看你。",
+  choices: [
+    { text: "退让，继续合作", effects: { progress: -5, morale: -8, budget: 0, bossTrust: 2 }, result: "你选择了忍耐。团队士气跌到谷底，但老板觉得你「识大体」。", resolution: "cooperate" },
+    { text: "请示老板，让他定夺", effects: { progress: -2, morale: -3, budget: 0, bossTrust: 0 }, result: "你把球踢给了老板。老板各打五十大板，要求你们「好好合作」。矛盾没有解决，只是被掩盖了。", resolution: "escalate" },
+    { text: "强硬驱逐，逼他离开", effects: { progress: 3, morale: 8, budget: 0, bossTrust: -3 }, result: "你联合了核心团队，向老板表明了态度：要么他走，要么我们走。老板妥协了，但你付出了巨大的政治代价。", resolution: "expel" },
+  ]
+};
+
+const PARATROOPER_PHASE4 = {
+  id: "paratrooper_phase4",
+  name: "伞兵结局",
+  emoji: "🎭",
+  color: "#a78bfa",
+  tagline: "「尘埃落定」",
+  situation: "经过三个月的拉扯，事情终于要有个了断：",
+  dialogue: "老板把你和他叫进了办公室。门关上的那一刻，你知道——今天，一切都会有个结果。",
+  choices: [
+    { text: "面对最终裁决", effects: {}, result: "结果如何，全看你之前的选择。" },
+  ]
+};
+
+const PARATROOPER_EVENTS = [PARATROOPER_PHASE1, PARATROOPER_PHASE2, PARATROOPER_PHASE3, PARATROOPER_PHASE4];
+
+// ================================================================
+// PATCH 35 + 38-40: 【待实现】
+// ================================================================
+// 下几个patch的常量就放这下面
