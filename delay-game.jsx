@@ -28,7 +28,7 @@ function ShareCard({ state }) {
     return "你留下了一座无字碑。好与坏，都是你的。";
   };
 
-  const getBar = (value) => "█".repeat(value) + "░".repeat(10 - value);
+  const getBar = (value) => { const v = Math.max(0, Math.min(10, value)); return "█".repeat(v) + "░".repeat(10 - v); };
 
   const endingColors = {
     legendary: "#facc15",
@@ -2075,7 +2075,7 @@ function NgPlusScreen({ legacyData, onNext }) {
     average: "「做完了。」",
     counter_win: "「做完了。情况特殊。」",
     bad_release: "「上线了。上面不太满意。」",
-    lose: "「上次的事老板知道。他说，再给你一次。」",
+    lose: "「上次的事老板知道。他说，再给你一次机会。」",
   };
   const tomLine = TomLines[legacyData.prevResult] || "「我们需要重新谈谈。」";
 
@@ -2087,8 +2087,7 @@ function NgPlusScreen({ legacyData, onNext }) {
         <p style={{ color: "#c7c7c7" }}>Tom在同一个前台。</p>
         <p style={{ color: "#c7c7c7" }}>还是没有站起来。</p>
         <p style={{ color: "#a78bfa", marginTop: 12 }}>{tomLine}</p>
-        <p style={{ color: "#c7c7c7", marginTop: 12 }}>「老板让你自己选</p>
-        <p style={{ color: "#c7c7c7" }}>下一个项目的窗口。」</p>
+        <p style={{ color: "#c7c7c7", marginTop: 12 }}>「老板让你自己选下一个项目的窗口。」</p>
         <p style={{ color: "#c7c7c7", marginTop: 8 }}>「哪年？」</p>
       </div>
       <button onClick={onNext} style={{ background: "#0c0c18", border: "1px solid #2a2a3a", color: "#888", borderRadius: 8, padding: "13px 14px", fontSize: 15, cursor: "pointer", width: "100%", transition: "all 0.15s" }}
@@ -3297,11 +3296,130 @@ export default function App() {
             newState.traitEventsTriggered = [];
           }
           
+          newState.usedActions = [];
+          newState.survived = (prev.survived || 0) + 1;
+
+          if (newState.progress >= 100 && newState.gamePhase === "playing") {
+            const hiddenScore = getHiddenScore(newState);
+            if (newState.qualityDebt >= 70) {
+              newState.gamePhase = "bad_release";
+            } else if (newState.bossTrust <= 2 || newState.budget <= 10) {
+              newState.gamePhase = "counter_win";
+            } else {
+              newState.gamePhase = getEndingTier(hiddenScore);
+            }
+          } else if (newState.budget <= 0 && newState.gamePhase === "playing") {
+            newState.gamePhase = "lose";
+            newState.loseReason = "预算归零，项目无法继续。";
+          } else if (newState.morale <= 0 && newState.gamePhase === "playing") {
+            newState.gamePhase = "lose";
+            newState.loseReason = "团队士气归零，所有人都离开了。";
+          } else if (newState.bossTrust <= 0 && newState.gamePhase === "playing") {
+            newState.gamePhase = "lose";
+            newState.loseReason = "老板彻底失去信任，项目被取消。";
+          }
+          
           setLastWorkEffect(workEffect);
           return newState;
         });
       }
     }, [weekPhase, event, state.gamePhase, workMode, overtimeType, pieCount, weekProcessed]);
+
+    useEffect(() => {
+      if (weekPhase === "event" && event === null && weekProcessed && state.gamePhase === "playing") {
+        let selectedEvent = null;
+
+        const paratrooperEvent = checkParatrooperEvents(state);
+        if (paratrooperEvent) {
+          selectedEvent = paratrooperEvent;
+        }
+
+        if (!selectedEvent) {
+          const traitEvent = checkTraitEvents(state);
+          if (traitEvent) {
+            selectedEvent = traitEvent;
+          }
+        }
+
+        if (!selectedEvent) {
+        const week = state.week;
+        const month = Math.ceil(week / 4);
+        const pendingEvents = state.pendingEvents || [];
+        const scheduledEvents = state.scheduledEvents || [];
+        const triggeredScheduled = scheduledEvents.filter(se => se.triggerWeek === week);
+        
+        if (triggeredScheduled.length > 0) {
+          const triggered = triggeredScheduled.find(se => EVENTS.find(e => e.id === se.id) || se.id === "hire_reveal" || se.id === "confused_year_strategy" || se.id === "capital_wave" || se.id === "capital_pressure" || se.id === "capital_direction_change" || se.id === "boss_talk");
+          if (triggered) {
+            if (triggered.id === "hire_reveal") {
+              selectedEvent = HIRE_REVEAL_EVENT;
+            } else if (triggered.id === "boss_talk") {
+              selectedEvent = BOSS_TALK;
+            } else if (triggered.id === "confused_year_strategy") {
+              selectedEvent = CONFUSED_YEAR_STRATEGY_EVENT;
+            } else if (triggered.id === "capital_wave") {
+              selectedEvent = CAPITAL_WAVE_EVENT;
+            } else if (triggered.id === "capital_pressure") {
+              selectedEvent = CAPITAL_PRESSURE_EVENT;
+            } else if (triggered.id === "capital_direction_change") {
+              selectedEvent = CAPITAL_DIRECTION_CHANGE_EVENT;
+            } else {
+              selectedEvent = EVENTS.find(e => e.id === triggered.id);
+            }
+          }
+        }
+
+        if (!selectedEvent && pendingEvents.length > 0) {
+          const pendingId = pendingEvents[0];
+          selectedEvent = EVENTS.find(e => e.id === pendingId);
+          if (pendingId === "zombie_reveal") selectedEvent = ZOMBIE_REVEAL;
+          if (pendingId === "water_reveal") selectedEvent = ZOMBIE_REVEAL;
+          if (pendingId === "boss_talk") selectedEvent = BOSS_TALK;
+          if (pendingId === "lucid_p1") selectedEvent = LUCID_P1;
+        }
+
+        if (!selectedEvent) {
+          const milestone = MILESTONE_EVENTS.find(m => m.month === month);
+          if (milestone && !state.verifyUsedThisMonth) {
+            selectedEvent = milestone;
+          }
+        }
+
+        const narrateA = YEAR_DATA[state.marketYear]?.narrateA;
+        const narrateB = YEAR_DATA[state.marketYear]?.narrateB;
+        if (!selectedEvent && week === 5 && narrateA && !(state.narrationsUsed || []).includes("narrateA")) {
+          selectedEvent = { type: "narration", narrateKey: "narrateA", text: narrateA, emoji: "📖" };
+        }
+        if (!selectedEvent && week === 9 && narrateB && !(state.narrationsUsed || []).includes("narrateB")) {
+          selectedEvent = { type: "narration", narrateKey: "narrateB", text: narrateB, emoji: "📖" };
+        }
+
+        if (!selectedEvent) {
+          const weights = EVENTS.map(e => getEventWeight(e.id, state.kpiState));
+          const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+          let roll = Math.random() * totalWeight;
+          for (let i = 0; i < EVENTS.length; i++) {
+            roll -= weights[i];
+            if (roll <= 0) {
+              selectedEvent = EVENTS[i];
+              break;
+            }
+          }
+        }
+        }
+
+        if (selectedEvent) {
+          setEvent(selectedEvent);
+          setAnimKey(k => k + 1);
+        } else {
+          setWeekPhase("planning");
+          setWeekProcessed(false);
+          setApSpent(0);
+          setPieCount(0);
+          setFreezeDone(false);
+        }
+      }
+    }, [weekPhase, event, weekProcessed, state.gamePhase, state.week]);
 
     useEffect(() => {
       if (weekPhase === "planning") {
@@ -3606,6 +3724,26 @@ export default function App() {
         }
       }
 
+      if (newState.progress >= 100 && newState.gamePhase === "playing") {
+        const hiddenScore = getHiddenScore(newState);
+        if (newState.qualityDebt >= 70) {
+          newState.gamePhase = "bad_release";
+        } else if (newState.bossTrust <= 2 || newState.budget <= 10) {
+          newState.gamePhase = "counter_win";
+        } else {
+          newState.gamePhase = getEndingTier(hiddenScore);
+        }
+      } else if (newState.budget <= 0 && newState.gamePhase === "playing") {
+        newState.gamePhase = "lose";
+        newState.loseReason = "预算归零，项目无法继续。";
+      } else if (newState.morale <= 0 && newState.gamePhase === "playing") {
+        newState.gamePhase = "lose";
+        newState.loseReason = "团队士气归零，所有人都离开了。";
+      } else if (newState.bossTrust <= 0 && newState.gamePhase === "playing") {
+        newState.gamePhase = "lose";
+        newState.loseReason = "老板彻底失去信任，项目被取消。";
+      }
+
       return newState;
     });
 
@@ -3648,17 +3786,26 @@ export default function App() {
     const paratrooperEvent = checkParatrooperEvents(state);
     if (paratrooperEvent) {
       setEvent(paratrooperEvent);
+      setShowResult(false);
       setAnimKey(k => k + 1);
       return;
     }
     const traitEvent = checkTraitEvents(state);
     if (traitEvent) {
       setEvent(traitEvent);
+      setShowResult(false);
       setAnimKey(k => k + 1);
       return;
     }
     setEvent(null);
     setShowResult(false);
+    setWeekPhase("planning");
+    setWeekProcessed(false);
+    setWorkMode("normal");
+    setOvertimeType("pay");
+    setApSpent(0);
+    setPieCount(0);
+    setFreezeDone(false);
     setAnimKey(k => k + 1);
 }, [state, checkParatrooperEvents]);
 
@@ -4267,6 +4414,13 @@ export default function App() {
                         narrationsUsed: [...(prev.narrationsUsed || []), event.narrateKey],
                       }));
                       setEvent(null);
+                      setWeekPhase("planning");
+                      setWeekProcessed(false);
+                      setWorkMode("normal");
+                      setOvertimeType("pay");
+                      setApSpent(0);
+                      setPieCount(0);
+                      setFreezeDone(false);
                       setAnimKey(k => k + 1);
                     }} style={{ ...s.choiceBtn, borderColor: "#2a2a3e", justifyContent: "center", color: "#c7c7c7", animation: "fadeUp 0.4s ease 1.1s forwards", opacity: 0 }}>
                       继续 →
