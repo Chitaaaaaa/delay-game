@@ -410,7 +410,7 @@ function buildInitialState(pickedCards, legacyData, selectedNgYear) {
   const bossColorIndex = PERSONALITIES.boss.traits.indexOf(bossTrait);
   const bossAvatarColor = PERSONALITIES.boss.avatarColors[bossColorIndex];
 
-  let s = { week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust, bossPersonality: { name: bossName, trait: bossTrait, avatarColor: bossAvatarColor }, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, projectHeadcount: 0, directionChosen: false, directionDelayPenalty: false, marketYear, companySize, kpiState: "normal", ipType, ipActive, ipProtectUsed: 0, ipProtectCount: ipType === "strong" ? 2 : 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, fakeProgress: 0, honestyHintShown: false, honestyMidHintShown: false, peopleHintShown: false, qualityHintShown: false, usedActions: [], lastManageUpResult: null, characters: [], directionClarity: 50, lowTrustStreak: 0, traitEventsTriggered: [], paratrooperPhase: null, paratrooperAccepted: null, paratrooperStance: null, paratrooperResolution: null, paratrooperTriggerWeek: null };
+  let s = { week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust, bossPersonality: { name: bossName, trait: bossTrait, avatarColor: bossAvatarColor }, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, projectHeadcount: 0, directionChosen: false, directionDelayPenalty: false, marketYear, companySize, kpiState: "normal", ipType, ipActive, ipProtectUsed: 0, ipProtectCount: ipType === "strong" ? 2 : 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], triggeredMilestones: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, fakeProgress: 0, honestyHintShown: false, honestyMidHintShown: false, peopleHintShown: false, qualityHintShown: false, usedActions: [], lastManageUpResult: null, characters: [], directionClarity: 50, lowTrustStreak: 0, traitEventsTriggered: [], paratrooperPhase: null, paratrooperAccepted: null, paratrooperStance: null, paratrooperResolution: null, paratrooperTriggerWeek: null };
   for (const card of pickedCards) { if (card) s = card.init(s); }
 
   s.directionClarity = getInitialDirectionClarity(null, companySize);
@@ -1043,27 +1043,28 @@ const ACTIONS = [
   { id: "verify", emoji: "🔎", label: "深入验收", ap: 2, desc: "解锁本月 milestone B 选项（看原始 build）", always: false,
     available: (s, ctx) => ctx.isMonthEnd && !s.verifyUsedThisMonth,
     apply: s => ({ ...s, verifyUsedThisMonth: true }) },
-       { id: "manage_up", emoji: "☕", label: "向上管理", ap: 2, desc: "老板信任度+1（低信任时失败无惩罚）", always: true,
-         available: s => s.bossTrust < 10,
-         apply: s => {
-           const atFloor = s.bossTrust <= 1;
-           const baseRate = s.bossTrust === 0 ? 1.0
-             : s.bossTrust >= 7 ? 0.75
-             : s.bossTrust <= 3 ? 0.50
-             : 0.65;
-           const personalityMultiplier = s.bossPersonality
-             ? PERSONALITIES.boss.idiosyncrasies[s.bossPersonality.trait]?.manageUpSuccessRate || 1.0
-             : 1.0;
-           const successRate = baseRate * personalityMultiplier;
-           const success = Math.random() < successRate;
-           const trustGain = success ? 1 : (atFloor ? 0 : -1);
-           return {
-             ...s,
-             bossTrust: Math.max(0, Math.min(10, s.bossTrust + trustGain)),
-             manageUpCount: (s.manageUpCount || 0) + 1,
-             lastManageUpResult: success ? "success" : "fail",
-           };
-         } },
+{ id: "manage_up", emoji: "☕", label: "向上管理", ap: 2, desc: "老板信任度+1（失败时不会扣信任）", always: true,
+          available: s => s.bossTrust < 10,
+          apply: s => {
+            const atFloor = s.bossTrust <= 1;
+            const baseRate = s.bossTrust === 0 ? 0.9
+              : s.bossTrust >= 7 ? 0.85
+              : s.bossTrust <= 3 ? 0.65
+              : 0.75;
+            const personalityMultiplier = s.bossPersonality
+              ? PERSONALITIES.boss.idiosyncrasies[s.bossPersonality.trait]?.manageUpSuccessRate || 1.0
+              : 1.0;
+            const backgroundBonus = getBackgroundBonus(s, "manageUpMultiplier");
+            const totalRate = Math.min(0.95, baseRate * personalityMultiplier * (backgroundBonus || 1.0));
+            const success = Math.random() < totalRate;
+            const trustGain = success ? 1 : 0;
+            return {
+              ...s,
+              bossTrust: Math.min(10, s.bossTrust + trustGain),
+              manageUpCount: (s.manageUpCount || 0) + 1,
+              lastManageUpResult: success ? "success" : "fail",
+            };
+          } },
 ];
 
 // ---- events ----------------------------------------------------------------
@@ -1785,7 +1786,7 @@ const MILESTONE_EVENTS = [
     situation: "第一个月末，上面来看原型：",
     dialogue: "投资方代表坐在会议室里，笑着问：「能跑吗？大概什么感觉？我不需要完整的，能动就行。」你扫了一眼团队——他们昨晚熬通宵做了一个能跑的东西。",
     choices: [
-      { text: "展示这个能跑的版本", effects: { progress: 0, morale: 2, budget: 2, bossTrust: -1, qualityDebt: 3 }, hidden: { honesty: -1 }, result: "他们满意地点头。你没有告诉他们这是昨晚才做的。" },
+      { text: "展示这个能跑的版本", effects: { progress: 0, morale: 2, budget: 2, bossTrust: 0, qualityDebt: 3 }, hidden: { honesty: -1 }, result: "他们满意地点头。你没有告诉他们这是昨晚才做的。" },
       { text: "如实说明当前进度和风险", effects: { progress: -2, morale: 2, budget: 0, bossTrust: 1 }, hidden: { honesty: 1 }, result: "他皱了皱眉，但最终点头：「诚实是好事。」进度没虚报，心里稳了。" },
       { text: "先找人确认这个版本有多少是真实的", effects: { progress: -1, morale: -1, budget: 0, bossTrust: 1 }, hidden: { judgment: 1 }, result: "你找人问了。心里大概有底了。" },
     ]
@@ -1798,7 +1799,7 @@ const MILESTONE_EVENTS = [
     situation: "第二个月末，内部评审：",
     dialogue: "总监把手柄放下来：「核心循环我玩了十分钟，感觉还行，就是……有几个地方我有点疑问。」\n他翻开了一页记满问题的纸。",
     choices: [
-      { text: "逐条解释，打消疑虑", effects: { progress: 0, morale: 2, budget: 2, bossTrust: -1, qualityDebt: 3 }, hidden: { honesty: -1 }, result: "你回答了所有问题。有三个你其实不确定，但你说得很自信。" },
+      { text: "逐条解释，打消疑虑", effects: { progress: 0, morale: 2, budget: 2, bossTrust: 0, qualityDebt: 3 }, hidden: { honesty: -1 }, result: "你回答了所有问题。有三个你其实不确定，但你说得很自信。" },
       { text: "承认部分问题，给出修复计划", effects: { progress: -3, morale: 3, budget: 0, bossTrust: 2 }, hidden: { honesty: 1, grit: 1 }, result: "他看起来有点失望，但接受了时间表。进度是真实的。" },
       { text: "先确认这十分钟他没玩到的地方是什么情况", effects: { progress: -1, morale: -1, budget: 0, bossTrust: 1 }, hidden: { judgment: 1 }, result: "你找人问了。心里大概有底了。" },
     ]
@@ -1811,7 +1812,7 @@ const MILESTONE_EVENTS = [
     situation: "第三个月末，里程碑测试：",
     dialogue: "QA组发来报告：「我们跑了一遍主流程……有一些情况。」你们约好了今天下午向上汇报全流程可用性。",
     choices: [
-      { text: "先开会，QA的问题会后再处理", effects: { progress: 0, morale: -2, budget: 3, bossTrust: -1, qualityDebt: 5 }, hidden: { honesty: -1 }, result: "汇报很顺利。QA报告被你压到了下周。" },
+      { text: "先开会，QA的问题会后再处理", effects: { progress: 0, morale: -2, budget: 3, bossTrust: 0, qualityDebt: 5 }, hidden: { honesty: -1 }, result: "汇报很顺利。QA报告被你压到了下周。" },
       { text: "推迟汇报，先处理QA问题", effects: { progress: -4, morale: 3, budget: 0, bossTrust: 2 }, hidden: { honesty: 1, quality: 1 }, result: "上面有点不满意被推迟。但你知道自己在哪里。" },
       { text: "让心腹先看一下QA报告里哪些是真正的问题", effects: { progress: -1, morale: -1, budget: 0, bossTrust: 1, qualityDebt: 3 }, hidden: { judgment: 1 }, result: "你找人问了。心里大概有底了。" },
     ]
@@ -3099,7 +3100,7 @@ export default function App() {
      const bossName = randomFrom(PERSONALITIES.boss.names);
      const bossColorIndex = PERSONALITIES.boss.traits.indexOf(bossTrait);
      const bossAvatarColor = PERSONALITIES.boss.avatarColors[bossColorIndex];
-     return { week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust: Math.floor(Math.random() * 6) + 3, bossPersonality: { name: bossName, trait: bossTrait, avatarColor: bossAvatarColor }, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, projectHeadcount: 0, directionChosen: false, directionDelayPenalty: false, marketYear, companySize: "mid", kpiState: "normal", ipType: "none", ipActive: false, ipProtectUsed: 0, ipProtectCount: 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, fakeProgress: 0, honestyHintShown: false, honestyMidHintShown: false, peopleHintShown: false, qualityHintShown: false, usedActions: [], lastManageUpResult: null };
+     return { week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust: Math.floor(Math.random() * 6) + 3, bossPersonality: { name: bossName, trait: bossTrait, avatarColor: bossAvatarColor }, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, projectHeadcount: 0, directionChosen: false, directionDelayPenalty: false, marketYear, companySize: "mid", kpiState: "normal", ipType: "none", ipActive: false, ipProtectUsed: 0, ipProtectCount: 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], triggeredMilestones: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, fakeProgress: 0, honestyHintShown: false, honestyMidHintShown: false, peopleHintShown: false, qualityHintShown: false, usedActions: [], lastManageUpResult: null };
    });
 
   const [workMode, setWorkMode] = useState("normal");
@@ -3299,6 +3300,11 @@ export default function App() {
           newState.usedActions = [];
           newState.survived = (prev.survived || 0) + 1;
 
+          if (!prev.directionChosen && prev.week >= 3) {
+            newState.qualityDebt = (newState.qualityDebt || 0) + 3;
+            newState.directionDelayPenalty = true;
+          }
+
           if (newState.progress >= 100 && newState.gamePhase === "playing") {
             const hiddenScore = getHiddenScore(newState);
             if (newState.qualityDebt >= 70) {
@@ -3328,10 +3334,43 @@ export default function App() {
     useEffect(() => {
       if (weekPhase === "event" && event === null && weekProcessed && state.gamePhase === "playing") {
         let selectedEvent = null;
+        const week = state.week;
+        const month = Math.ceil(week / 4);
 
-        const paratrooperEvent = checkParatrooperEvents(state);
-        if (paratrooperEvent) {
-          selectedEvent = paratrooperEvent;
+        if (!state.directionChosen && (week === 2 || week === 3)) {
+          const yearData = YEAR_DATA[state.marketYear];
+          if (yearData && yearData.special === "confused_year") {
+            selectedEvent = CONFUSED_YEAR_STRATEGY_EVENT;
+          } else {
+            selectedEvent = DIRECTION_SELECT_EVENT;
+          }
+        }
+
+        if (!selectedEvent && !state.directionChosen && week >= 5) {
+          const availableDirs = buildDirectionPool(state.marketYear, state.playerBackground, state.industryBackground);
+          let forcedDir;
+          if (availableDirs && availableDirs.length > 0) {
+            forcedDir = availableDirs[Math.floor(Math.random() * availableDirs.length)].direction;
+          } else {
+            const allDirs = Object.keys(DIRECTION_TEAM_SCALE);
+            forcedDir = allDirs[Math.floor(Math.random() * allDirs.length)];
+          }
+          setState(prev => ({
+            ...prev,
+            gameDirection: forcedDir,
+            directionChosen: true,
+            directionDelayPenalty: true,
+            projectHeadcount: getProjectTeamSize(forcedDir, prev.companySize),
+            directionClarity: getInitialDirectionClarity(forcedDir, prev.companySize),
+            characters: generateCharactersForGame(forcedDir, prev.companySize, prev.marketYear),
+          }));
+        }
+
+        if (!selectedEvent) {
+          const paratrooperEvent = checkParatrooperEvents(state);
+          if (paratrooperEvent) {
+            selectedEvent = paratrooperEvent;
+          }
         }
 
         if (!selectedEvent) {
@@ -3342,45 +3381,47 @@ export default function App() {
         }
 
         if (!selectedEvent) {
-        const week = state.week;
-        const month = Math.ceil(week / 4);
-        const pendingEvents = state.pendingEvents || [];
-        const scheduledEvents = state.scheduledEvents || [];
-        const triggeredScheduled = scheduledEvents.filter(se => se.triggerWeek === week);
-        
-        if (triggeredScheduled.length > 0) {
-          const triggered = triggeredScheduled.find(se => EVENTS.find(e => e.id === se.id) || se.id === "hire_reveal" || se.id === "confused_year_strategy" || se.id === "capital_wave" || se.id === "capital_pressure" || se.id === "capital_direction_change" || se.id === "boss_talk");
-          if (triggered) {
-            if (triggered.id === "hire_reveal") {
-              selectedEvent = HIRE_REVEAL_EVENT;
-            } else if (triggered.id === "boss_talk") {
-              selectedEvent = BOSS_TALK;
-            } else if (triggered.id === "confused_year_strategy") {
-              selectedEvent = CONFUSED_YEAR_STRATEGY_EVENT;
-            } else if (triggered.id === "capital_wave") {
-              selectedEvent = CAPITAL_WAVE_EVENT;
-            } else if (triggered.id === "capital_pressure") {
-              selectedEvent = CAPITAL_PRESSURE_EVENT;
-            } else if (triggered.id === "capital_direction_change") {
-              selectedEvent = CAPITAL_DIRECTION_CHANGE_EVENT;
-            } else {
-              selectedEvent = EVENTS.find(e => e.id === triggered.id);
+          const scheduledEvents = state.scheduledEvents || [];
+          const triggeredScheduled = scheduledEvents.filter(se => se.triggerWeek === week);
+          
+          if (triggeredScheduled.length > 0) {
+            const triggered = triggeredScheduled.find(se => EVENTS.find(e => e.id === se.id) || se.id === "hire_reveal" || se.id === "confused_year_strategy" || se.id === "capital_wave" || se.id === "capital_pressure" || se.id === "capital_direction_change" || se.id === "boss_talk");
+            if (triggered) {
+              if (triggered.id === "hire_reveal") {
+                selectedEvent = HIRE_REVEAL_EVENT;
+              } else if (triggered.id === "boss_talk") {
+                selectedEvent = BOSS_TALK;
+              } else if (triggered.id === "confused_year_strategy") {
+                selectedEvent = CONFUSED_YEAR_STRATEGY_EVENT;
+              } else if (triggered.id === "capital_wave") {
+                selectedEvent = CAPITAL_WAVE_EVENT;
+              } else if (triggered.id === "capital_pressure") {
+                selectedEvent = CAPITAL_PRESSURE_EVENT;
+              } else if (triggered.id === "capital_direction_change") {
+                selectedEvent = CAPITAL_DIRECTION_CHANGE_EVENT;
+              } else {
+                selectedEvent = EVENTS.find(e => e.id === triggered.id);
+              }
             }
           }
         }
 
-        if (!selectedEvent && pendingEvents.length > 0) {
-          const pendingId = pendingEvents[0];
-          selectedEvent = EVENTS.find(e => e.id === pendingId);
-          if (pendingId === "zombie_reveal") selectedEvent = ZOMBIE_REVEAL;
-          if (pendingId === "water_reveal") selectedEvent = ZOMBIE_REVEAL;
-          if (pendingId === "boss_talk") selectedEvent = BOSS_TALK;
-          if (pendingId === "lucid_p1") selectedEvent = LUCID_P1;
+        if (!selectedEvent) {
+          const pendingEvents = state.pendingEvents || [];
+          if (pendingEvents.length > 0) {
+            const pendingId = pendingEvents[0];
+            selectedEvent = EVENTS.find(e => e.id === pendingId);
+            if (pendingId === "zombie_reveal") selectedEvent = ZOMBIE_REVEAL;
+            if (pendingId === "water_reveal") selectedEvent = ZOMBIE_REVEAL;
+            if (pendingId === "boss_talk") selectedEvent = BOSS_TALK;
+            if (pendingId === "lucid_p1") selectedEvent = LUCID_P1;
+          }
         }
 
         if (!selectedEvent) {
           const milestone = MILESTONE_EVENTS.find(m => m.month === month);
-          if (milestone && !state.verifyUsedThisMonth) {
+          const triggeredMilestones = state.triggeredMilestones || [];
+          if (milestone && !triggeredMilestones.includes(milestone.id) && !state.verifyUsedThisMonth) {
             selectedEvent = milestone;
           }
         }
@@ -3406,7 +3447,6 @@ export default function App() {
             }
           }
         }
-        }
 
         if (selectedEvent) {
           setEvent(selectedEvent);
@@ -3414,6 +3454,8 @@ export default function App() {
         } else {
           setWeekPhase("planning");
           setWeekProcessed(false);
+          setWorkMode("normal");
+          setOvertimeType("pay");
           setApSpent(0);
           setPieCount(0);
           setFreezeDone(false);
@@ -3461,7 +3503,7 @@ export default function App() {
      const bossName = randomFrom(PERSONALITIES.boss.names);
      const bossColorIndex = PERSONALITIES.boss.traits.indexOf(bossTrait);
       const bossAvatarColor = PERSONALITIES.boss.avatarColors[bossColorIndex];
-       setState({ week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust: Math.floor(Math.random() * 6) + 3, bossPersonality: { name: bossName, trait: bossTrait, avatarColor: bossAvatarColor }, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, projectHeadcount: 0, directionChosen: false, directionDelayPenalty: false, marketYear, companySize: "mid", kpiState: "normal", ipType: "none", ipActive: false, ipProtectUsed: 0, ipProtectCount: 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, fakeProgress: 0, honestyHintShown: false, honestyMidHintShown: false, peopleHintShown: false, qualityHintShown: false, usedActions: [], lastManageUpResult: null, characters: [], directionClarity: 50, lowTrustStreak: 0, traitEventsTriggered: [], paratrooperPhase: null, paratrooperAccepted: null, paratrooperStance: null, paratrooperResolution: null, paratrooperTriggerWeek: null });
+       setState({ week: 1, progress: 0, morale: 75, budget: 100, survived: 0, gamePhase: "playing", loseReason: "", progressBonus: 0, apBonusPerWeek: 0, progressMomentum: 0, pendingEvents: [], confidant: null, verifyUsedThisMonth: false, lucidConfidant: null, scheduledEvents: [], lucidPhase1: null, lucidTriggered: false, bossTrust: Math.floor(Math.random() * 6) + 3, bossPersonality: { name: bossName, trait: bossTrait, avatarColor: bossAvatarColor }, hireBurdenWeeksLeft: 0, hireBurdenRate: 0, hireScale: null, problemEmployee: null, activeBonus: 0, manpowerTriggered: false, teamSlots: [], qualityDebt: 0, gameDirection: null, projectHeadcount: 0, directionChosen: false, directionDelayPenalty: false, marketYear, companySize: "mid", kpiState: "normal", ipType: "none", ipActive: false, ipProtectUsed: 0, ipProtectCount: 0, ipRevealShown: false, overtimeThisWeek: false, narrationsUsed: [], triggeredMilestones: [], consecutiveGoodMonths: 0, kpiBoostMonths: 0, manageUpCount: 0, progressLastMonth: 0, industryBackground: null, playerBackground: null, backgroundBonuses: [], honesty: 10, people: 10, quality: 10, judgment: 10, grit: 10, crisisComfortCount: 0, teamComfortCount: 0, bossTrustHitZero: false, fakeProgress: 0, honestyHintShown: false, honestyMidHintShown: false, peopleHintShown: false, qualityHintShown: false, usedActions: [], lastManageUpResult: null, characters: [], directionClarity: 50, lowTrustStreak: 0, traitEventsTriggered: [], paratrooperPhase: null, paratrooperAccepted: null, paratrooperStance: null, paratrooperResolution: null, paratrooperTriggerWeek: null });
      setWorkMode("normal");
      setOvertimeType("pay");
      setPieCount(0);
@@ -3592,10 +3634,15 @@ export default function App() {
         // Patch 34 + Patch 35: generate characters when direction is chosen
         if (choice.direction && DIRECTION_TEAM_SCALE[choice.direction]) {
           newState.gameDirection = choice.direction;
+          newState.directionChosen = true;
           newState.projectHeadcount = getProjectTeamSize(choice.direction, prev.companySize);
           newState.projectHeadcount = Math.min(newState.projectHeadcount, MAX_HEADCOUNT[prev.companySize]);
           newState.directionClarity = getInitialDirectionClarity(choice.direction, prev.companySize);
           newState.characters = generateCharactersForGame(choice.direction, prev.companySize, prev.marketYear);
+          const dirBudgetDelta = getDirectionBudgetDelta(choice.direction);
+          if (dirBudgetDelta) {
+            newState.budget = Math.max(0, newState.budget + dirBudgetDelta);
+          }
         }
 
         // Headcount decrease - lucid_p2 choice A (outcome = "external")
@@ -3679,7 +3726,17 @@ export default function App() {
         }
       }
 
-      if (PERSONALITY_EVENTS.some(e => e.id === event?.id)) {
+      if (MILESTONE_EVENTS.some(m => m.id === event?.id)) {
+          if (!newState.triggeredMilestones) {
+            newState.triggeredMilestones = [];
+          }
+          if (!newState.triggeredMilestones.includes(event.id)) {
+            newState.triggeredMilestones = [...newState.triggeredMilestones, event.id];
+          }
+          newState.verifyUsedThisMonth = false;
+        }
+
+        if (PERSONALITY_EVENTS.some(e => e.id === event?.id)) {
         if (!newState.traitEventsTriggered) {
           newState.traitEventsTriggered = [];
         }
@@ -4435,34 +4492,56 @@ export default function App() {
                        const isParatrooper = event?.id === "paratrooper";
                        const isHireReveal = event?.id === "hire_reveal";
                        
-                        let choices;
-                        let getOptionLabel;
-                        let displayDialogue = event.dialogue;
-                        let hireResult = null;
+let choices;
+                         let getOptionLabel;
+                         let displayDialogue = event.dialogue;
+                         let hireResult = null;
+                         
+                         const isManpowerEvent = event?.id === "manpower";
+                         const isDreamer = event?.id === "dreamer";
+                         const isQuitter = event?.id === "quitter";
+                         
+                         if (state.teamSlots.length > 0) {
+                           const memberForEvent = state.teamSlots[0];
+                           if (isManpowerEvent) {
+                             const engineerMember = getMemberByTrait(state.teamSlots, ["严谨"], "engineer") || memberForEvent;
+                             displayDialogue = `${engineerMember.name}（${engineerMember.trait}的${ROLE_NAMES[engineerMember.role]}）找到你，眉头紧锁：\n\n` +
+                               `「老板刚才把我叫进办公室，说开发速度一定要快。不行就加人。HR那边准备了一批简历。\n他还塞过来几个推荐候选人的名单，让我优先考虑。」\n\n你接过名单，感觉事情没那么简单。`;
+                           } else if (isDreamer) {
+                             const designerMember = getMemberByTrait(state.teamSlots, ["脑洞大"], "designer") || memberForEvent;
+                             displayDialogue = `${designerMember.name}（${designerMember.trait}的${ROLE_NAMES[designerMember.role]}）找到你，眼睛发亮：\n\n` +
+                               `「制作人！我昨晚想到了一个超酷的功能——城市建造系统+NPC情绪引擎+实时动态天气！直接对标最近很火的那个猛男捡树枝！我问了朋友，实现起来应该不难的！」`;
+                           } else if (isQuitter) {
+                             const engineerMember = getMemberByTrait(state.teamSlots, ["激进"], "engineer") || memberForEvent;
+                             displayDialogue = `${engineerMember.name}（${engineerMember.trait}的${ROLE_NAMES[engineerMember.role]}）发来私信：\n\n` +
+                               `「制作人……我想辞职。我跟女朋友分手了，在这个城市实在待不下去了。战斗系统我会交接好的。」`;
+                           }
+                         }
                         
-                        const isManpowerEvent = event?.id === "manpower";
-                        const isDreamer = event?.id === "dreamer";
-                        const isQuitter = event?.id === "quitter";
-                        
-                        if (state.teamSlots.length > 0) {
-                          const memberForEvent = state.teamSlots[0];
-                          if (isManpowerEvent) {
-                            const engineerMember = getMemberByTrait(state.teamSlots, ["严谨"], "engineer") || memberForEvent;
-                            displayDialogue = `${engineerMember.name}（${engineerMember.trait}的${ROLE_NAMES[engineerMember.role]}）找到你，眉头紧锁：\n\n` +
-                              `「老板刚才把我叫进办公室，说开发速度一定要快。不行就加人。HR那边准备了一批简历。\n他还塞过来几个推荐候选人的名单，让我优先考虑。」\n\n你接过名单，感觉事情没那么简单。`;
-                          } else if (isDreamer) {
-                            const designerMember = getMemberByTrait(state.teamSlots, ["脑洞大"], "designer") || memberForEvent;
-                            displayDialogue = `${designerMember.name}（${designerMember.trait}的${ROLE_NAMES[designerMember.role]}）找到你，眼睛发亮：\n\n` +
-                              `「制作人！我昨晚想到了一个超酷的功能——城市建造系统+NPC情绪引擎+实时动态天气！直接对标最近很火的那个猛男捡树枝！我问了朋友，实现起来应该不难的！」`;
-                          } else if (isQuitter) {
-                            const engineerMember = getMemberByTrait(state.teamSlots, ["激进"], "engineer") || memberForEvent;
-                            displayDialogue = `${engineerMember.name}（${engineerMember.trait}的${ROLE_NAMES[engineerMember.role]}）发来私信：\n\n` +
-                              `「制作人……我想辞职。我跟女朋友分手了，在这个城市实在待不下去了。战斗系统我会交接好的。」`;
-                          }
-                        }
-                       
-                       if (isLucidP2) {
-                         const phase1 = state.lucidPhase1;
+                        if (event?.id === "direction_select") {
+                           const pool = buildDirectionPool(state.marketYear, state.playerBackground, state.industryBackground);
+                           if (pool) {
+                             choices = pool.map(p => {
+                               const dir = DIRECTIONS[p.direction] || DIRECTION_TEAM_SCALE[p.direction];
+                               const label = (DIRECTIONS[p.direction]?.label) || p.direction;
+                               return {
+                                 text: label + (p.pitch ? " — " + p.pitch : ""),
+                                 effects: {},
+                                 direction: p.direction,
+                                 result: p.tag ? `[${p.tag}] ${dir?.pitch || ""}` : (dir?.pitch || ""),
+                                 ...(p.backgroundBonus ? { backgroundBonus: p.backgroundBonus } : {}),
+                               };
+                             });
+                           } else {
+                             const fallback = Object.keys(DIRECTION_TEAM_SCALE).slice(0, 3);
+                             choices = fallback.map(d => {
+                               const dir = DIRECTIONS[d];
+                               return { text: dir?.label || d, effects: {}, direction: d, result: dir?.pitch || "" };
+                             });
+                           }
+                           getOptionLabel = (i) => null;
+} else if (isLucidP2) {
+                          const phase1 = state.lucidPhase1;
                          choices = [LUCID_P2_CHOICES.A, LUCID_P2_CHOICES.B];
                          if (phase1 === "B") choices.push(LUCID_P2_CHOICES.C);
                          getOptionLabel = (i) => ["A", "B", "C"][i];
@@ -4753,7 +4832,7 @@ const s = {
 // Patch 38: 伞兵事件 - 4个阶段
 const PARATROOPER_PHASE1 = {
   id: "paratrooper_phase1",
-  name: "经理空降",
+  name: "伞兵空降",
   emoji: "🪂",
   color: "#4ade80",
   tagline: "「我不会乱动的」（但一定会的）",
